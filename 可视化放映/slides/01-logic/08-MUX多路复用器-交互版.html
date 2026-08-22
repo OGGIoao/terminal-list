@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场08·多路复用器MUX</title>
+<style>
+  :root{--bg:#fafafa;--ink:#0a0a0a;--accent:#002FA7;--hair:#d0d0d4;--staff:#5F5E5A;--muted:#8a8a8e;--red:#A32D2D}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--hair)}
+  .crumb{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+  .crumb b{color:var(--ink);font-weight:500}
+  .ngbtn{font-size:11px;letter-spacing:.5px;color:var(--muted);background:none;border:1px solid var(--hair);padding:6px 14px;cursor:pointer;font-family:inherit}
+  .ngbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .stage{flex:1;display:flex;flex-direction:column;padding:22px 40px 8px;overflow:hidden}
+  .kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  .title{font-size:23px;font-weight:500;letter-spacing:-.5px;margin-bottom:2px}
+  .sub{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .canvas{flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:0;overflow:hidden;padding-bottom:8px}
+  .canvas svg{width:100%;max-width:540px;height:auto}
+  .wire{stroke:var(--hair);stroke-width:1.5;fill:none;transition:stroke .3s,stroke-width .3s}
+  .wire.on{stroke:var(--accent);stroke-width:2.2}
+  .blk{fill:#fff;stroke:var(--hair);stroke-width:1.2;transition:all .3s}
+  .blk.on{stroke:var(--accent);stroke-width:1.8;fill:rgba(0,47,167,.04)}
+  .glbl{font:600 14px ui-sans-serif,system-ui;fill:var(--ink);text-anchor:middle}
+  .lbl{font:500 11px ui-monospace,monospace;fill:var(--muted)}
+  .lbl.key{fill:var(--ink)}
+  .lbl.on{fill:var(--accent)}
+  .val{font:600 14px ui-monospace,monospace;fill:var(--muted);text-anchor:middle}
+  .val.on{fill:var(--accent)}
+  .nd{fill:var(--ink)}
+  .photon{fill:var(--accent);opacity:0}
+  .photon.run{animation:fl 1.1s linear infinite}
+  @keyframes fl{0%{opacity:0;transform:translateX(0)}25%{opacity:1}75%{opacity:1}100%{opacity:0;transform:translateX(var(--d,140px))}}
+  .dock{border-top:1px solid var(--hair);padding:18px 40px;height:156px;position:relative;display:flex;flex-direction:column;justify-content:center}
+  .speaker{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .speaker svg{width:18px;height:18px}
+  .speaker .name{font-size:12px;letter-spacing:1px;font-weight:500;text-transform:uppercase}
+  .speaker.staff{color:var(--staff)}
+  .speaker.tr{color:var(--accent)}
+  .dialogue{font-size:16px;line-height:1.5;min-height:52px;max-width:840px}
+  .dialogue .cursor{display:inline-block;width:9px;height:18px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:bk 1s steps(2) infinite}
+  @keyframes bk{50%{opacity:0}}
+  .action{position:absolute;right:40px;bottom:16px;font-size:12px;color:var(--muted);letter-spacing:.5px;opacity:0;transition:opacity .3s}
+  .action.show{opacity:1;color:var(--accent)}
+  .nav{position:absolute;left:40px;bottom:16px;display:flex;gap:16px;font-size:11px;letter-spacing:.5px}
+  .nav a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--hair)}
+  .nav a:hover{color:var(--accent);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="crumb">场 08 · <b>多路复用器 MUX</b></div>
+  <button class="ngbtn" onclick="reset()">NG · 再拍一条</button>
+</div>
+<div class="stage">
+  <div class="kicker">L1 逻辑电路 · 选路</div>
+  <div class="title">MUX：十字路口的交警</div>
+  <div class="sub">选择信号 S 决定哪条输入通到输出——ALU 将用它选"算术还是逻辑"</div>
+  <div class="canvas">
+    <svg viewBox="0 0 540 200">
+      <!-- 4输入 网格对齐 y=35/70/105/140 -->
+      <circle class="nd" cx="40" cy="35" r="3"/><text class="lbl key" x="32" y="39" text-anchor="end">D0</text>
+      <circle class="nd" cx="40" cy="70" r="3"/><text class="lbl key" x="32" y="74" text-anchor="end">D1</text>
+      <circle class="nd" cx="40" cy="105" r="3"/><text class="lbl key" x="32" y="109" text-anchor="end">D2</text>
+      <circle class="nd" cx="40" cy="140" r="3"/><text class="lbl key" x="32" y="144" text-anchor="end">D3</text>
+      <!-- 输入线 水平直线 到MUX左边x=190 -->
+      <line class="wire" id="wD0" x1="40" y1="35" x2="190" y2="35"/>
+      <line class="wire" id="wD1" x1="40" y1="70" x2="190" y2="70"/>
+      <line class="wire" id="wD2" x1="40" y1="105" x2="190" y2="105"/>
+      <line class="wire" id="wD3" x1="40" y1="140" x2="190" y2="140"/>
+      <circle class="photon" id="pD0" cx="45" cy="35" r="3" style="--d:140px"/>
+      <circle class="photon" id="pD1" cx="45" cy="70" r="3" style="--d:140px"/>
+      <circle class="photon" id="pD2" cx="45" cy="105" r="3" style="--d:140px"/>
+      <circle class="photon" id="pD3" cx="45" cy="140" r="3" style="--d:140px"/>
+      <!-- MUX矩形 网格对齐 -->
+      <rect class="blk" id="mux" x="190" y="20" width="110" height="140" rx="2"/>
+      <text class="glbl" x="245" y="95">MUX</text>
+      <!-- 选择信号S 从顶部接入矩形(245,20) -->
+      <line class="wire" id="wS" x1="245" y1="5" x2="245" y2="20"/>
+      <circle class="nd" cx="245" cy="5" r="3"/>
+      <text class="lbl key" id="sLbl" x="260" y="10">S=00</text>
+      <text class="lbl" x="225" y="10" text-anchor="end">选择</text>
+      <!-- 输出 从矩形右边(300,90)出 -->
+      <line class="wire" id="wY" x1="300" y1="90" x2="440" y2="90"/>
+      <circle class="photon" id="pY" cx="305" cy="90" r="3" style="--d:130px"/>
+      <text class="lbl key" x="450" y="86">Y</text>
+      <text class="val" id="vY" x="465" y="96">0</text>
+      <text class="lbl" x="245" y="185" text-anchor="middle">S 选哪路，Y 就是哪路的值</text>
+    </svg>
+  </div>
+</div>
+<div class="dock">
+  <div class="speaker staff" id="spk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>
+    <span class="name">场务</span>
+  </div>
+  <div class="dialogue" id="dlg"><span class="cursor"></span></div>
+  <div class="nav"><a href="07-全加器-交互版.html">‹ 上一页</a><a href="../逻辑电路卷目录.html">目录</a><a href="09-解码器-交互版.html">下一页 ›</a></div>
+  <div class="action" id="cont">Action ▸</div>
+</div>
+<script>
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),cont=document.getElementById('cont');
+let step=0,typing=false,pending=null,curText='';
+const icons={
+  staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>',
+  tr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="12" x2="11" y2="12"/><line x1="11" y1="7" x2="11" y2="17"/><line x1="13" y1="8" x2="13" y2="11"/><line x1="13" y1="13" x2="13" y2="16"/><line x1="13" y1="9" x2="20" y2="9"/><line x1="13" y1="15" x2="20" y2="15"/></svg>'
+};
+function setSpeaker(r,n){spk.className='speaker '+r;spk.innerHTML=icons[r]+'<span class="name">'+n+'</span>';}
+function type(t){curText=t;typing=true;return new Promise(res=>{pending=res;let i=0;dlg.innerHTML='<span class="cursor"></span>';const tick=()=>{if(!typing)return;if(i<t.length){dlg.innerHTML=t.slice(0,i+1)+'<span class="cursor"></span>';i++;setTimeout(tick,32);}else{typing=false;pending=null;res();}};tick();});}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function clearAll(){
+  ['wD0','wD1','wD2','wD3','wS','wY'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  ['pD0','pD1','pD2','pD3','pY'].forEach(id=>document.getElementById(id).classList.remove('run'));
+  document.getElementById('mux').classList.remove('on');
+  document.getElementById('vY').className='val';
+}
+function select(s){
+  clearAll();
+  document.getElementById('sLbl').textContent='S='+s;
+  document.getElementById('wS').classList.add('on');
+  document.getElementById('mux').classList.add('on');
+  const idx=parseInt(s,2);
+  const dVal=[1,0,1,0][idx];
+  document.getElementById('wD'+idx).classList.add('on');
+  document.getElementById('pD'+idx).classList.add('run');
+  document.getElementById('wY').classList.add('on');
+  document.getElementById('pY').classList.add('run');
+  document.getElementById('vY').textContent=dVal;
+  document.getElementById('vY').className='val '+(dVal?'on':'');
+}
+async function goStep(n){
+  cont.classList.remove('show');cont.textContent='Action ▸';
+  if(n===1){clearAll();document.getElementById('vY').textContent='?';setSpeaker('staff','场务');await type('电路里经常要选路——比如 ALU 要选"做加法还是做逻辑与"。这个选路的活，交给 MUX。');}
+  else if(n===2){select('00');await wait(600);setSpeaker('staff','场务');await type('S=00 选第 0 路：D0 的值顺着线流到输出 Y。D0=1，所以 Y=1。');}
+  else if(n===3){select('10');await wait(600);setSpeaker('staff','场务');await type('S 变成 10，选第 2 路——道岔拨过去了，现在 D2 的值流到 Y。D2=1，Y=1。');}
+  else if(n===4){select('01');await wait(600);setSpeaker('staff','场务');await type('S=01 选第 1 路：D1=0，Y=0。选哪路，Y 就是哪路的值。');}
+  else if(n===5){setSpeaker('tr','MUX');await type('我就是十字路口的交警(¬‿¬)。S 给我指路，我放哪条车道，哪条就通。');}
+  else if(n===6){clearAll();document.getElementById('vY').textContent='?';setSpeaker('staff','场务');await type('记住它——ALU 就是用我选"算术还是逻辑"的。下一场，看另一个选路兄弟：解码器。');cont.textContent='Action · 下一场 ▸';}
+  if(n<6)cont.classList.add('show');
+}
+function advance(){if(typing){typing=false;dlg.innerHTML=curText+'<span class="cursor"></span>';if(pending){pending();pending=null;}return;}if(step<6){step++;goStep(step);}else{window.location.href='09-解码器-交互版.html';}}
+function reset(){step=0;typing=false;pending=null;curText='';clearAll();document.getElementById('vY').textContent='?';document.getElementById('sLbl').textContent='S=??';setSpeaker('staff','场务');dlg.innerHTML='<span class="cursor"></span>';cont.textContent='喊 Action 开拍 ▸';cont.classList.add('show');}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight'){e.preventDefault();advance();}else if(e.code==='Backspace'||e.code==='ArrowLeft'){e.preventDefault();reset();}});
+reset();
+</script>
+</body>
+</html>

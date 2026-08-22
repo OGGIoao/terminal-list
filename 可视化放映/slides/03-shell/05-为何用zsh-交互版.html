@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>macOS 为何用 zsh · 中心辐射</title>
+<style>
+  :root{
+    --bg:#fafafa; --surface:#fff; --hair:#e2e2e2;
+    --text:#1a1a1a; --muted:#9a9a9a;
+    --accent:#002FA7; --accent-bg:#E6EBF5; --accent-soft:#EEF2FB;
+    --r-zsh:#002FA7; --r-nar:#6a6a6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+  }
+  .slide{
+    width:min(980px,95vw); height:min(660px,93vh);
+    display:flex; flex-direction:column; gap:0; padding:38px 46px; position:relative;
+  }
+  header.sl-h{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:1px solid var(--hair); padding-bottom:16px; margin-bottom:14px;
+  }
+  header.sl-h h1{font-size:24px; font-weight:500; letter-spacing:.2px}
+  header.sl-h .crumb{font-size:12px; color:var(--muted); letter-spacing:.6px; text-transform:uppercase}
+  header.sl-h .crumb b{color:var(--accent); font-weight:500}
+
+  .stage{flex:1; display:flex; align-items:center; justify-content:center}
+  .radial{position:relative; width:100%; height:380px}
+  .radial svg.lines{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+  .radial svg.lines line{stroke:var(--accent); stroke-width:1; stroke-dasharray:60; stroke-dashoffset:60; transition:stroke-dashoffset .6s}
+  .radial svg.lines line.lit{stroke-dashoffset:0}
+
+  .center{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    opacity:0; transition:.4s;
+  }
+  .center.show{opacity:1}
+  .center .ring{
+    width:84px; height:84px; border:2px solid var(--accent); background:var(--accent-bg);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .center .ring .ic{width:42px; height:42px; stroke:var(--accent); fill:none; stroke-width:1.6}
+  .center .nm{font-size:15px; font-weight:500; color:var(--accent)}
+
+  .spoke{
+    position:absolute; width:170px; display:flex; flex-direction:column; gap:5px;
+    background:var(--bg); padding:8px 10px;
+    opacity:0; transform:scale(.8); transition:.4s;
+  }
+  .spoke.show{opacity:1; transform:scale(1)}
+  .spoke.tl{left:2%; top:8%}
+  .spoke.tr{right:2%; top:8%}
+  .spoke.bl{left:2%; bottom:8%}
+  .spoke.br{right:2%; bottom:8%}
+  .spoke .tag{
+    font-size:10px; letter-spacing:.5px; color:var(--muted); text-transform:uppercase;
+    border:1px solid var(--hair); padding:2px 8px; display:inline-block; width:fit-content;
+  }
+  .spoke .head{font-size:14px; font-weight:500; color:var(--text)}
+  .spoke .body{font-size:11.5px; color:var(--muted); line-height:1.5}
+  .spoke.lit .tag{border-color:var(--accent); color:var(--accent)}
+  .spoke.lit .head{color:var(--accent)}
+
+  .dialogue{
+    border-left:3px solid var(--r-nar); padding:14px 0 14px 18px;
+    min-height:84px; margin-top:14px; transition:border-color .3s;
+  }
+  .dialogue[data-role="zsh"]{border-color:var(--r-zsh)}
+  .dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{
+    font-size:13px; letter-spacing:.3px;
+    display:flex; align-items:center; gap:7px; margin-bottom:8px; font-weight:500; color:var(--r-nar);
+  }
+  .dialogue[data-role="zsh"] .speaker{color:var(--r-zsh)}
+  .speaker .spk-ic{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px; border:1px solid currentColor; font-size:11px; letter-spacing:.4px}
+  .type-text{font-size:18px; line-height:1.7; min-height:30px}
+  .type-cursor{display:inline-block; width:9px; height:20px; background:var(--r-nar); vertical-align:-4px; margin-left:2px; animation:blink .7s step-end infinite}
+  .dialogue[data-role="zsh"] .type-cursor{background:var(--r-zsh)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px; color:var(--accent); letter-spacing:.5px; margin-top:10px; opacity:0; transition:.3s}
+  .continue.show{opacity:1; animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:.4} 50%{opacity:1}}
+  .progress{position:absolute; top:14px; right:20px; display:flex; gap:4px}
+  .progress .dot{width:18px; height:3px; background:var(--hair); transition:.3s}
+  .progress .dot.on{background:var(--accent)}
+  .replay-btn{position:absolute; bottom:14px; right:20px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:7px 16px; font-size:12px; cursor:pointer; border-radius:0; letter-spacing:.5px; text-transform:uppercase; font-family:inherit; z-index:5}
+  .replay-btn:hover{background:var(--accent); color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="04-家族史-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="06-zshrc是什么-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="none" stroke-width="1.6"/><path d="M6 9 l3 3 -3 3" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div class="slide">
+  <header class="sl-h">
+    <h1>macOS 为何选了 zsh</h1>
+    <div class="crumb">场 05 · <b>为何选 zsh</b></div>
+  </header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+  <div class="stage">
+    <div class="radial" id="radial">
+      <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line id="ln1" x1="50" y1="50" x2="26" y2="32"/>
+        <line id="ln2" x1="50" y1="50" x2="74" y2="32"/>
+        <line id="ln3" x1="50" y1="50" x2="26" y2="68"/>
+        <line id="ln4" x1="50" y1="50" x2="74" y2="68"/>
+      </svg>
+      <div class="center" id="center">
+        <div class="ring"><svg class="ic"><use href="#ic-terminal"/></svg></div>
+        <div class="nm">zsh</div>
+      </div>
+      <div class="spoke tl" data-i="1"><span class="tag">理由 01</span><div class="head">协议宽松</div><div class="body">bash 4.0 起 GPLv3，苹果不绑</div></div>
+      <div class="spoke tr" data-i="2"><span class="tag">理由 02</span><div class="head">兼容 bash</div><div class="body">几乎兼容 bash 语法，老脚本能跑</div></div>
+      <div class="spoke bl" data-i="3"><span class="tag">理由 03</span><div class="head">功能更丰富</div><div class="body">补全 / 主题 / 插件更强</div></div>
+      <div class="spoke br" data-i="4"><span class="tag">理由 04</span><div class="head">社区活跃</div><div class="body">生态成熟，问题好查</div></div>
+    </div>
+  </div>
+
+  <div class="dialogue" id="dlg" data-role="narrator">
+    <div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div>
+    <span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span>
+    <div class="continue" id="cont">Action ▸</div>
+  </div>
+  <button class="replay-btn" onclick="event.stopPropagation(); reset(); advance();">NG · 再拍一条</button>
+</div>
+
+<script>
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const dots=[...document.querySelectorAll('#progress .dot')];
+const center=document.getElementById('center');
+const spokes=[...document.querySelectorAll('.spoke')];
+const lines=[document.getElementById('ln1'),document.getElementById('ln2'),document.getElementById('ln3'),document.getElementById('ln4')];
+const dlg=document.getElementById('dlg'), spk=document.getElementById('spk'), tt=document.getElementById('tt'), cont=document.getElementById('cont');
+
+let step=0, typing=false, typeTimer=null, pending=null, lock=false, curText='';
+const TOTAL=6;
+
+function setDots(n){ dots.forEach((d,j)=>d.classList.toggle('on', j<n)); }
+function setSpeaker(role,label,icon){ dlg.dataset.role=role; spk.innerHTML='<svg class="spk-ic"><use href="#'+icon+'"/></svg><span class="spk-nm">'+label+'</span>'; }
+function litSpoke(i){ const s=spokes.find(x=>x.dataset.i==i); if(s){s.classList.add('show','lit');} lines[i-1].classList.add('lit'); }
+
+function typeSpeak(role,label,icon,text){
+  curText=text;
+  return new Promise(res=>{
+    pending=res; typing=true; setSpeaker(role,label,icon);
+    tt.textContent=''; cont.classList.remove('show');
+    let i=0;
+    typeTimer=setInterval(()=>{
+      tt.textContent=text.slice(0,++i);
+      if(i>=text.length){ clearInterval(typeTimer); typing=false; cont.classList.add('show'); pending=null; res(); }
+    },42);
+  });
+}
+function fastFinish(){
+  if(!typing) return false;
+  clearInterval(typeTimer); tt.textContent=curText; typing=false; cont.classList.add('show');
+  if(pending){ const r=pending; pending=null; r(); } return true;
+}
+
+async function goStep(n){
+  setDots(n);
+  if(n===1){
+    await typeSpeak('narrator','场务','ic-bubble','这场我搭好了——苹果为啥选 zsh，四条理由摆开来。');
+  } else if(n===2){
+    center.classList.add('show');
+    await wait(450);
+    await typeSpeak('zsh','zsh','ic-terminal','苹果 2019 年把我选成默认，不是随便挑的。');
+  } else if(n===3){
+    litSpoke(1);
+    await wait(650);
+    await typeSpeak('narrator','场务','ic-bubble','头一条——bash 从 4.0 起改 GPLv3 协议，苹果不愿在自己系统里绑 GPLv3 软件。');
+  } else if(n===4){
+    litSpoke(2);
+    await wait(650);
+    await typeSpeak('zsh','zsh','ic-terminal','第二条——我几乎兼容 bash 语法，老脚本搬过来直接能跑。');
+  } else if(n===5){
+    litSpoke(3);
+    await wait(650);
+    await typeSpeak('zsh','zsh','ic-terminal','第三条——我功能比 bash 多：补全更强、主题插件丰富。');
+  } else if(n===6){
+    litSpoke(4);
+    await wait(650);
+    await typeSpeak('zsh','zsh','ic-terminal','第四条——我社区也活跃，生态成熟。所以苹果选了我。下一场，看看我每天跑的那个 .zshrc 到底是什么。');
+    cont.textContent='Action · 下一场 ▸'; cont.classList.add('show');
+  }
+}
+
+function reset(){
+  step=0; lock=false;
+  center.classList.remove('show');
+  spokes.forEach(s=>s.classList.remove('show','lit'));
+  lines.forEach(l=>l.classList.remove('lit'));
+  setDots(0); setSpeaker('narrator','场务','ic-bubble'); tt.textContent='喊 Action 开拍'; cont.classList.remove('show'); cont.textContent='Action ▸';
+}
+async function advance(){
+  if(lock) return;
+  if(fastFinish()) return;
+  if(step>=TOTAL){ reset(); }
+  step++; lock=true;
+  await goStep(step);
+  lock=false;
+}
+document.addEventListener('click', advance);
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){ e.preventDefault(); advance(); }
+});
+</script>
+</body>
+</html>

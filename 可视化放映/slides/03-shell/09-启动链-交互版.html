@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>启动链 · 剧组版</title>
+<style>
+  :root{--bg:#fafafa;--surface:#fff;--hair:#e2e2e2;--text:#1a1a1a;--muted:#9a9a9a;--accent:#002FA7;--accent-bg:#E6EBF5;--accent-soft:#EEF2FB;--warn:#D4392B;--warn-bg:#FBEDEB;--r-zsh:#002FA7;--r-nar:#6a6a6a}
+  *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+  .slide{width:min(980px,95vw);height:min(660px,93vh);display:flex;flex-direction:column;gap:0;padding:38px 46px;position:relative}
+  header.sl-h{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:16px;margin-bottom:14px}
+  header.sl-h h1{font-size:24px;font-weight:500;letter-spacing:.2px}
+  header.sl-h .crumb{font-size:12px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+  header.sl-h .crumb b{color:var(--accent);font-weight:500}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center}
+  .tree{display:flex;flex-direction:column;align-items:center;width:100%;max-width:600px}
+  .tnode{border:1px solid var(--hair);background:var(--surface);padding:14px 24px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(8px);transition:.4s;min-width:180px;justify-content:center}
+  .tnode.show{opacity:1;transform:none}
+  .tnode .ic{width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:1.7;transition:stroke .3s;flex-shrink:0}
+  .tnode .tag{font-size:10px;color:var(--muted);letter-spacing:.4px;border:1px solid var(--hair);padding:1px 6px}
+  .tnode.lit{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .tnode.lit .ic{stroke:var(--accent)}
+  .tnode.warn.lit{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+  .tnode.warn.lit .ic{stroke:var(--warn)}
+  .vline{width:1px;height:26px;background:var(--hair)}
+  .forkrow{display:flex;gap:96px;align-items:flex-start}
+  .branch{display:flex;flex-direction:column;align-items:center}
+  .branch .blbl{font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:.3px;transition:color .3s}
+  .branch .bvline{width:1px;height:22px;background:var(--hair)}
+  .branch.lit .blbl{color:var(--accent)}
+  .mergebar{width:240px;height:1px;background:var(--hair);position:relative}
+  .mergebar::before{content:"";position:absolute;left:0;top:-22px;width:1px;height:22px;background:var(--hair)}
+  .mergebar::after{content:"";position:absolute;right:0;top:-22px;width:1px;height:22px;background:var(--hair)}
+  .mergebar .mstem{position:absolute;left:50%;top:0;width:1px;height:26px;background:var(--hair);transform:translateX(-50%)}
+  .dialogue{border-left:3px solid var(--r-nar);padding:14px 0 14px 18px;min-height:84px;margin-top:14px;transition:border-color .3s}
+  .dialogue[data-role="zsh"]{border-color:var(--r-zsh)}.dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{font-size:13px;letter-spacing:.3px;display:flex;align-items:center;gap:7px;margin-bottom:8px;font-weight:500;color:var(--r-nar)}
+  .dialogue[data-role="zsh"] .speaker{color:var(--r-zsh)}
+  .speaker .spk-ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px;border:1px solid currentColor;font-size:11px;letter-spacing:.4px}
+  .type-text{font-size:18px;line-height:1.7;min-height:30px}
+  .type-cursor{display:inline-block;width:9px;height:20px;background:var(--r-nar);vertical-align:-4px;margin-left:2px;animation:blink .7s step-end infinite}
+  .dialogue[data-role="zsh"] .type-cursor{background:var(--r-zsh)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px;color:var(--accent);letter-spacing:.5px;margin-top:10px;opacity:0;transition:.3s}
+  .continue.show{opacity:1;animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .progress{position:absolute;top:14px;right:20px;display:flex;gap:4px}
+  .progress .dot{width:18px;height:3px;background:var(--hair);transition:.3s}
+  .progress .dot.on{background:var(--accent)}
+  .replay-btn{position:absolute;bottom:14px;right:20px;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 16px;font-size:12px;cursor:pointer;border-radius:0;letter-spacing:.5px;text-transform:uppercase;font-family:inherit;z-index:5}
+  .replay-btn:hover{background:var(--accent);color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="08-安全视角-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="10-写错文件-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="none" stroke-width="1.7"/><path d="M6 9 l3 3 -3 3" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-file" viewBox="0 0 24 24"><path d="M6 3 h8 l4 4 v14 h-12 z M14 3 v4 h4" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-play" viewBox="0 0 24 24"><path d="M6 4 l14 8 -14 8 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<div class="slide">
+  <header class="sl-h"><h1>启动链：login 还是 interactive</h1><div class="crumb">场 09 · <b>启动链</b></div></header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="stage">
+    <div class="tree">
+      <div class="tnode" data-i="0"><svg class="ic"><use href="#ic-play"/></svg>zsh 启动<span class="tag">START</span></div>
+      <div class="vline"></div>
+      <div class="tnode warn" data-i="1"><svg class="ic"><use href="#ic-bubble"/></svg>是 login shell？<span class="tag">分叉</span></div>
+      <div class="vline"></div>
+      <div class="forkrow">
+        <div class="branch" data-i="2"><span class="blbl">是（SSH 登录）</span><div class="bvline"></div><div class="tnode" data-i="2"><svg class="ic"><use href="#ic-file"/></svg>~/.zprofile</div></div>
+        <div class="branch" data-i="3"><span class="blbl">否（开新终端）</span><div class="bvline"></div><div class="tnode" data-i="3"><svg class="ic"><use href="#ic-file"/></svg>跳过 zprofile</div></div>
+      </div>
+      <div class="vline"></div>
+      <div class="tnode" data-i="4"><svg class="ic"><use href="#ic-file"/></svg>~/.zshrc<span class="tag">最常读</span></div>
+      <div class="vline"></div>
+      <div class="tnode" data-i="5"><svg class="ic"><use href="#ic-terminal"/></svg>开始交互</div>
+    </div>
+  </div>
+  <div class="dialogue" id="dlg" data-role="narrator"><div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div><span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span><div class="continue" id="cont">Action ▸</div></div>
+  <button class="replay-btn" onclick="event.stopPropagation();reset();advance();">NG · 再拍一条</button>
+</div>
+<script>
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const dots=[...document.querySelectorAll('#progress .dot')];
+const nodes=[...document.querySelectorAll('.tnode')];
+const branches=[...document.querySelectorAll('.branch')];
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),tt=document.getElementById('tt'),cont=document.getElementById('cont');
+let step=0,typing=false,typeTimer=null,pending=null,lock=false,curText='';
+const TOTAL=6;
+function setDots(n){dots.forEach((d,j)=>d.classList.toggle('on',j<n));}
+function setSpeaker(r,l,i){dlg.dataset.role=r;spk.innerHTML='<svg class="spk-ic"><use href="#'+i+'"/></svg><span class="spk-nm">'+l+'</span>';}
+function showNode(i){const n=nodes.find(x=>x.dataset.i==i);if(n)n.classList.add('show','lit');}
+function showBranch(i){const b=branches.find(x=>x.dataset.i==i);if(b){b.classList.add('lit');b.querySelector('.tnode').classList.add('show','lit');}}
+function typeSpeak(r,l,i,t){curText=t;return new Promise(res=>{pending=res;typing=true;setSpeaker(r,l,i);tt.textContent='';cont.classList.remove('show');let k=0;typeTimer=setInterval(()=>{tt.textContent=t.slice(0,++k);if(k>=t.length){clearInterval(typeTimer);typing=false;cont.classList.add('show');pending=null;res();}},42);});}
+function fast(){if(!typing)return false;clearInterval(typeTimer);tt.textContent=curText;typing=false;cont.classList.add('show');if(pending){const r=pending;pending=null;r();}return true;}
+async function goStep(n){setDots(n);
+  if(n===1){showNode(0);await wait(500);await typeSpeak('narrator','场务','ic-bubble','这场换个分叉的布景——zsh 启动时，按类型决定读哪些文件。');}
+  else if(n===2){showNode(1);await wait(500);await typeSpeak('narrator','场务','ic-bubble','第一个分叉：是不是 login shell？');}
+  else if(n===3){showBranch(2);await wait(600);await typeSpeak('narrator','场务','ic-bubble','是 login（比如 SSH 登录）→ 先读 ~/.zprofile。');}
+  else if(n===4){showBranch(3);await wait(600);await typeSpeak('narrator','场务','ic-bubble','否（你平时双击开新终端）→ 跳过 zprofile，直接往下。');}
+  else if(n===5){showNode(4);await wait(500);await typeSpeak('zsh','zsh','ic-terminal','所以你平时开新终端，只读 ~/.zshrc——最常改的就是它。');}
+  else if(n===6){showNode(5);await wait(400);await typeSpeak('narrator','场务','ic-bubble','把环境变量写进 zprofile 但开的是非登录终端？根本不读——改了等于没改。下一场专门讲这个坑。');cont.textContent='Action · 下一场 ▸';cont.classList.add('show');}
+}
+function reset(){step=0;lock=false;nodes.forEach(n=>n.classList.remove('show','lit'));branches.forEach(b=>{b.classList.remove('lit');b.querySelector('.tnode').classList.remove('show','lit');});setDots(0);setSpeaker('narrator','场务','ic-bubble');tt.textContent='喊 Action 开拍';cont.classList.remove('show');cont.textContent='Action ▸';}
+async function advance(){if(lock)return;if(fast())return;if(step>=TOTAL)reset();step++;lock=true;await goStep(step);lock=false;}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){e.preventDefault();advance();}});
+</script>
+</body>
+</html>

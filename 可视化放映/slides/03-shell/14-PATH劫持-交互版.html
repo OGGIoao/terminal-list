@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PATH 劫持 · 剧组版</title>
+<style>
+  :root{--bg:#fafafa;--surface:#fff;--hair:#e2e2e2;--text:#1a1a1a;--muted:#9a9a9a;--accent:#002FA7;--accent-soft:#EEF2FB;--warn:#D4392B;--warn-bg:#FBEDEB;--good:#3B6D11;--good-bg:#EAF3DE;--r-zsh:#002FA7;--r-nar:#6a6a6a;--r-att:#A32D2D}
+  *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+  .slide{width:min(980px,95vw);height:min(660px,93vh);display:flex;flex-direction:column;gap:0;padding:38px 46px;position:relative}
+  header.sl-h{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:16px;margin-bottom:14px}
+  header.sl-h h1{font-size:24px;font-weight:500}.crumb{font-size:12px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}.crumb b{color:var(--warn);font-weight:500}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center}
+  .cw{width:100%;position:relative;padding-top:36px}
+  .finder{position:absolute;top:0;left:0;width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:2;transition:left .5s cubic-bezier(.4,0,.2,1);opacity:0}
+  .finder.on{opacity:1}
+  .chain{display:flex;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+  .dir{flex:1;padding:24px 8px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;border-right:1px solid var(--hair);position:relative;transition:background .3s,opacity .4s;opacity:0;transform:translateY(8px)}
+  .dir:last-child{border-right:none}.dir.show{opacity:1;transform:none}
+  .dir .ic{width:32px;height:32px;stroke:var(--muted);fill:none;stroke-width:1.6;transition:stroke .3s}
+  .dir .nm{font-family:"SF Mono",Menlo,monospace;font-size:12px;color:var(--muted);text-align:center}
+  .dir.lit{background:var(--accent-soft)}.dir.lit .ic,.dir.lit .nm{stroke:var(--accent);color:var(--accent)}
+  .dir.evil.lit{background:var(--warn-bg)}.dir.evil.lit .ic,.dir.evil.lit .nm{stroke:var(--warn);color:var(--warn)}
+  .dir.evil.lit::after{content:"木马";position:absolute;top:6px;right:8px;font-size:10px;color:var(--warn);font-weight:500}
+  .dir.safe.lit{background:var(--good-bg)}.dir.safe.lit .ic,.dir.safe.lit .nm{stroke:var(--good);color:var(--good)}
+  .choice{display:flex;gap:20px;margin-top:24px;justify-content:center}
+  .opt{border:1px solid var(--hair);padding:10px 18px;font-size:13px;font-family:"SF Mono",Menlo,monospace;opacity:0;transition:.4s}
+  .opt.show{opacity:1}
+  .opt.bad{border-color:var(--warn);color:var(--warn);background:var(--warn-bg)}
+  .opt.good{border-color:var(--good);color:var(--good);background:var(--good-bg)}
+  .dialogue{border-left:3px solid var(--r-nar);padding:14px 0 14px 18px;min-height:84px;margin-top:14px;transition:border-color .3s}
+  .dialogue[data-role="attacker"]{border-color:var(--r-att)}.dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{font-size:13px;letter-spacing:.3px;display:flex;align-items:center;gap:7px;margin-bottom:8px;font-weight:500;color:var(--r-nar)}
+  .dialogue[data-role="attacker"] .speaker{color:var(--r-att)}
+  .speaker .spk-ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px;border:1px solid currentColor;font-size:11px;letter-spacing:.4px}
+  .type-text{font-size:18px;line-height:1.7;min-height:30px}
+  .type-cursor{display:inline-block;width:9px;height:20px;background:var(--r-nar);vertical-align:-4px;margin-left:2px;animation:blink .7s step-end infinite}
+  .dialogue[data-role="attacker"] .type-cursor{background:var(--r-att)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px;color:var(--accent);letter-spacing:.5px;margin-top:10px;opacity:0;transition:.3s}
+  .continue.show{opacity:1;animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .progress{position:absolute;top:14px;right:20px;display:flex;gap:4px}.progress .dot{width:18px;height:3px;background:var(--hair);transition:.3s}.progress .dot.on{background:var(--warn)}
+  .replay-btn{position:absolute;bottom:14px;right:20px;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 16px;font-size:12px;cursor:pointer;border-radius:0;letter-spacing:.5px;text-transform:uppercase;font-family:inherit;z-index:5}.replay-btn:hover{background:var(--accent);color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="13-三板斧-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="15-alias钓鱼-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 7 h6 l2 2 h10 v10 h-18 z" fill="none" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke-width="2"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1" fill="none" stroke-width="1.7"/><path d="M8 11 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke-width="1.7"/></symbol>
+</defs></svg>
+<div class="slide">
+  <header class="sl-h"><h1>PATH 劫持：恶意目录冒充命令</h1><div class="crumb">场 14 · <b>PATH 劫持</b></div></header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="stage">
+    <div class="cw">
+      <svg class="finder" id="finder"><use href="#ic-search"/></svg>
+      <div class="chain" id="chain">
+        <div class="dir evil" data-i="0"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/tmp/evil</span></div>
+        <div class="dir" data-i="1"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/local/bin</span></div>
+        <div class="dir" data-i="2"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/bin</span></div>
+        <div class="dir safe" data-i="3"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/bin</span></div>
+      </div>
+      <div class="choice">
+        <div class="opt bad" id="optA">A: 直接敲 ls</div>
+        <div class="opt good" id="optB">B: /usr/bin/ls 绝对路径</div>
+      </div>
+    </div>
+  </div>
+  <div class="dialogue" id="dlg" data-role="narrator"><div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div><span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span><div class="continue" id="cont">Action ▸</div></div>
+  <button class="replay-btn" onclick="event.stopPropagation();reset();advance();">NG · 再拍一条</button>
+</div>
+<script>
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const dots=[...document.querySelectorAll('#progress .dot')],dirs=[...document.querySelectorAll('.dir')],finder=document.getElementById('finder');
+const optA=document.getElementById('optA'),optB=document.getElementById('optB');
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),tt=document.getElementById('tt'),cont=document.getElementById('cont');
+let step=0,typing=false,typeTimer=null,pending=null,lock=false,curText='';const TOTAL=6;
+function setDots(n){dots.forEach((d,j)=>d.classList.toggle('on',j<n));}
+function setSpeaker(r,l,i){dlg.dataset.role=r;spk.innerHTML='<svg class="spk-ic"><use href="#'+i+'"/></svg><span class="spk-nm">'+l+'</span>';}
+function moveFinder(i){const w=document.querySelector('.cw').getBoundingClientRect();const r=dirs[i].getBoundingClientRect();finder.style.left=(r.left-w.left+r.width/2-12)+'px';}
+function typeSpeak(r,l,i,t){curText=t;return new Promise(res=>{pending=res;typing=true;setSpeaker(r,l,i);tt.textContent='';cont.classList.remove('show');let k=0;typeTimer=setInterval(()=>{tt.textContent=t.slice(0,++k);if(k>=t.length){clearInterval(typeTimer);typing=false;cont.classList.add('show');pending=null;res();}},42);});}
+function fast(){if(!typing)return false;clearInterval(typeTimer);tt.textContent=curText;typing=false;cont.classList.add('show');if(pending){const r=pending;pending=null;r();}return true;}
+async function goStep(n){setDots(n);
+  if(n===1){dirs.forEach((d,i)=>setTimeout(()=>d.classList.add('show'),i*100));await wait(700);await typeSpeak('narrator','场务','ic-bubble','这场讲 PATH 劫持——攻击者冒充系统命令。');}
+  else if(n===2){await typeSpeak('narrator','场务','ic-bubble','攻击者把 /tmp/evil 放到 PATH 最前面。');}
+  else if(n===3){optA.classList.add('show');optB.classList.add('show');await wait(400);await typeSpeak('narrator','场务','ic-bubble','你敲 ls，会怎样？看两种选择。');}
+  else if(n===4){finder.classList.add('on');moveFinder(0);await wait(550);dirs[0].classList.add('lit');await wait(500);await typeSpeak('attacker','攻击者','ic-lock','选 A：你敲 ls，先命中我的木马——中招了 (｀∀´)');}
+  else if(n===5){dirs[0].classList.remove('lit');moveFinder(3);await wait(600);dirs[3].classList.add('lit');await wait(500);await typeSpeak('narrator','场务','ic-bubble','选 B：用 /usr/bin/ls 绝对路径，绕过 PATH 查找——安全。');}
+  else if(n===6){await typeSpeak('narrator','场务','ic-bubble','防御：别把 . 或不可信目录放 PATH 前；敏感命令用绝对路径。下一场，alias 也能钓鱼。');cont.textContent='Action · 下一场 ▸';cont.classList.add('show');}
+}
+function reset(){step=0;lock=false;dirs.forEach(d=>d.classList.remove('show','lit'));finder.classList.remove('on');finder.style.left='0';optA.classList.remove('show');optB.classList.remove('show');setDots(0);setSpeaker('narrator','场务','ic-bubble');tt.textContent='喊 Action 开拍';cont.classList.remove('show');cont.textContent='Action ▸';}
+async function advance(){if(lock)return;if(fast())return;if(step>=TOTAL)reset();step++;lock=true;await goStep(step);lock=false;}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){e.preventDefault();advance();}});
+</script>
+</body>
+</html>

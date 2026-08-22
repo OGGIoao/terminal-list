@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场03·用晶体管搭逻辑门</title>
+<style>
+  :root{--bg:#fafafa;--ink:#0a0a0b;--accent:#002FA7;--hair:#d0d0d4;--staff:#5F5E5A;--sw:#185FA5;--amber:#EF9F27;--muted:#8a8a8e;--red:#A32D2D}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--hair)}
+  .crumb{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+  .crumb b{color:var(--ink);font-weight:500}
+  .ngbtn{font-size:11px;letter-spacing:.5px;color:var(--muted);background:none;border:1px solid var(--hair);padding:6px 14px;cursor:pointer;font-family:inherit}
+  .ngbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .stage{flex:1;display:flex;flex-direction:column;padding:24px 48px 12px;overflow:hidden}
+  .kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+  .title{font-size:23px;font-weight:500;letter-spacing:-.5px;margin-bottom:3px}
+  .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .rows{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+  .row{display:grid;grid-template-columns:180px 1fr 160px;gap:0;border:1px solid var(--hair);opacity:.4;transition:opacity .5s;min-height:0}
+  .row.active{opacity:1}
+  .row-label{padding:14px 18px;border-right:1px solid var(--hair);display:flex;flex-direction:column;justify-content:center}
+  .row-tag{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .row-name{font-size:16px;font-weight:500}
+  .row-desc{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .circuit{padding:8px 16px;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden}
+  .circuit svg{width:100%;max-width:440px;height:auto}
+  .result{padding:14px 16px;border-left:1px solid var(--hair);display:flex;flex-direction:column;justify-content:center;gap:5px}
+  .truth{font:500 10px ui-monospace,monospace;color:var(--muted);line-height:1.6}
+  .truth b{color:var(--ink)}
+  .truth .y{color:var(--accent)}
+  .truth .n{color:var(--red)}
+  .wire{stroke:var(--hair);stroke-width:1.5;fill:none;transition:stroke .3s,stroke-width .3s}
+  .wire.on{stroke:var(--accent);stroke-width:2.2}
+  .chan{stroke:var(--muted);stroke-width:2;fill:none;transition:all .3s}
+  .chan.cond{stroke:var(--accent);stroke-width:2.6}
+  .chan.broken{stroke:var(--red);stroke-width:1.5;stroke-dasharray:4,3}
+  .gw{stroke:var(--muted);stroke-width:1.5;fill:none;transition:all .3s}
+  .gw.active{stroke:var(--accent);stroke-width:2.2}
+  .gw.inactive{stroke:var(--muted)}
+  .bulb{fill:none;stroke:var(--hair);stroke-width:1.5;transition:all .3s}
+  .bulb.lit{fill:var(--amber);stroke:var(--amber)}
+  .bulb.dead{stroke:var(--red)}
+  .lbl{font:500 10px ui-monospace,monospace;fill:var(--muted)}
+  .lbl.key{fill:var(--ink)}
+  .lbl.on{fill:var(--accent)}
+  .lbl.off{fill:var(--red)}
+  .gnode{fill:var(--muted);transition:fill .3s}
+  .gnode.on{fill:var(--accent)}
+  .gnode.off{fill:var(--red)}
+  .dock{border-top:1px solid var(--hair);padding:14px 48px 16px;min-height:108px;position:relative}
+  .speaker{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .speaker svg{width:18px;height:18px}
+  .speaker .name{font-size:12px;letter-spacing:1px;font-weight:500;text-transform:uppercase}
+  .speaker.staff{color:var(--staff)}
+  .speaker.tr{color:var(--accent)}
+  .dialogue{font-size:16px;line-height:1.5;min-height:46px;max-width:820px}
+  .dialogue .cursor{display:inline-block;width:9px;height:18px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:bk 1s steps(2) infinite}
+  @keyframes bk{50%{opacity:0}}
+  .action{position:absolute;right:48px;bottom:18px;font-size:12px;color:var(--muted);letter-spacing:.5px;opacity:0;transition:opacity .3s}
+  .action.show{opacity:1;color:var(--accent)}
+  .nav{position:absolute;left:48px;bottom:18px;display:flex;gap:18px;font-size:11px;letter-spacing:.5px}
+  .nav a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--hair)}
+  .nav a:hover{color:var(--accent);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="crumb">场 03 · <b>用晶体管搭逻辑门</b></div>
+  <button class="ngbtn" onclick="reset()">NG · 再拍一条</button>
+</div>
+<div class="stage">
+  <div class="kicker">L1 逻辑电路 · 从晶体管到逻辑</div>
+  <div class="title">晶体管怎么连接，就决定什么逻辑</div>
+  <div class="sub">串联 = 与（栅极都高才通）｜并联 = 或（任一栅极高就通）</div>
+  <div class="rows">
+    <!-- 串联=与门: 两晶体管竖向串联,栅极从左引入 -->
+    <div class="row" id="row1">
+      <div class="row-label">
+        <div class="row-tag">串联</div>
+        <div class="row-name">与门 AND</div>
+        <div class="row-desc">两晶体管串在一起，栅极 A、B 都高，通道才通</div>
+      </div>
+      <div class="circuit">
+        <svg viewBox="0 0 460 150">
+          <!-- 电池 -->
+          <line class="wire" x1="35" y1="50" x2="35" y2="85"/>
+          <line class="wire" x1="25" y1="85" x2="45" y2="85"/>
+          <line class="wire" x1="30" y1="91" x2="40" y2="91"/>
+          <text class="lbl" x="35" y="108" text-anchor="middle">电池</text>
+          <!-- 上线到灯泡 -->
+          <line class="wire" id="s1a" x1="35" y1="50" x2="35" y2="28"/>
+          <line class="wire" id="s1b" x1="35" y1="28" x2="410" y2="28"/>
+          <circle class="bulb" id="bulb1" cx="410" cy="28" r="12"/>
+          <text class="lbl" x="410" y="13" text-anchor="middle">灯</text>
+          <!-- 灯泡到晶体管1 D -->
+          <line class="wire" id="s1c" x1="410" y1="40" x2="410" y2="55"/>
+          <line class="wire" id="s1d" x1="410" y1="55" x2="320" y2="55"/>
+          <!-- 晶体管1: D(320,55) 通道到S(320,78) -->
+          <line class="chan" id="ch1" x1="320" y1="55" x2="320" y2="78"/>
+          <line class="gw" id="gw1" x1="255" y1="66" x2="315" y2="66"/>
+          <circle class="gnode" id="gn1" cx="255" cy="66" r="3"/>
+          <text class="lbl key" id="gA" x="248" y="70" text-anchor="end">A=0</text>
+          <!-- 连接1的S到2的D -->
+          <line class="wire" id="s1e" x1="320" y1="78" x2="320" y2="85"/>
+          <!-- 晶体管2: D(320,85) 通道到S(320,108) -->
+          <line class="chan" id="ch2" x1="320" y1="85" x2="320" y2="108"/>
+          <line class="gw" id="gw2" x1="255" y1="96" x2="315" y2="96"/>
+          <circle class="gnode" id="gn2" cx="255" cy="96" r="3"/>
+          <text class="lbl key" id="gB" x="248" y="100" text-anchor="end">B=0</text>
+          <!-- 回路 -->
+          <line class="wire" id="s1f" x1="320" y1="108" x2="320" y2="125"/>
+          <line class="wire" id="s1g" x1="320" y1="125" x2="35" y2="125"/>
+          <line class="wire" x1="35" y1="91" x2="35" y2="125"/>
+        </svg>
+      </div>
+      <div class="result">
+        <div class="truth">A=1 B=0 → <span class="n">不通</span></div>
+        <div class="truth">A=1 B=1 → <span class="y">通</span></div>
+        <div class="truth" style="margin-top:5px"><b>都高才通 = 与</b></div>
+      </div>
+    </div>
+    <!-- 并联=或门: 两晶体管并排,栅极A左B右分两侧引入 -->
+    <div class="row" id="row2">
+      <div class="row-label">
+        <div class="row-tag">并联</div>
+        <div class="row-name">或门 OR</div>
+        <div class="row-desc">两晶体管并联，任一栅极高，通道就通</div>
+      </div>
+      <div class="circuit">
+        <svg viewBox="0 0 460 150">
+          <!-- 电池 -->
+          <line class="wire" x1="35" y1="50" x2="35" y2="85"/>
+          <line class="wire" x1="25" y1="85" x2="45" y2="85"/>
+          <line class="wire" x1="30" y1="91" x2="40" y2="91"/>
+          <text class="lbl" x="35" y="108" text-anchor="middle">电池</text>
+          <!-- 上线到灯泡(中间) -->
+          <line class="wire" id="s2a" x1="35" y1="50" x2="35" y2="28"/>
+          <line class="wire" id="s2b" x1="35" y1="28" x2="230" y2="28"/>
+          <circle class="bulb" id="bulb2" cx="230" cy="28" r="12"/>
+          <text class="lbl" x="230" y="13" text-anchor="middle">灯</text>
+          <!-- 灯泡下分两路 -->
+          <line class="wire" id="s2c" x1="230" y1="40" x2="230" y2="52"/>
+          <line class="wire" id="s2d" x1="230" y1="52" x2="150" y2="52"/>
+          <line class="wire" id="s2d2" x1="150" y1="52" x2="150" y2="55"/>
+          <line class="wire" id="s2d3" x1="230" y1="52" x2="310" y2="52"/>
+          <line class="wire" id="s2d4" x1="310" y1="52" x2="310" y2="55"/>
+          <!-- 晶体管A(左): D(150,55)通道到S(150,82),栅极从左引入 -->
+          <line class="chan" id="chA" x1="150" y1="55" x2="150" y2="82"/>
+          <line class="gw" id="gwA" x1="95" y1="68" x2="145" y2="68"/>
+          <circle class="gnode" id="gnA" cx="95" cy="68" r="3"/>
+          <text class="lbl key" id="gA2" x="88" y="72" text-anchor="end">A=0</text>
+          <!-- 晶体管B(右): D(310,55)通道到S(310,82),栅极从右引入 -->
+          <line class="chan" id="chB" x1="310" y1="55" x2="310" y2="82"/>
+          <line class="gw" id="gwB" x1="315" y1="68" x2="365" y2="68"/>
+          <circle class="gnode" id="gnB" cx="365" cy="68" r="3"/>
+          <text class="lbl key" id="gB2" x="372" y="72" text-anchor="start">B=0</text>
+          <!-- S端汇合 -->
+          <line class="wire" id="s2e" x1="150" y1="82" x2="150" y2="95"/>
+          <line class="wire" id="s2f" x1="310" y1="82" x2="310" y2="95"/>
+          <line class="wire" id="s2g" x1="150" y1="95" x2="310" y2="95"/>
+          <line class="wire" id="s2h" x1="230" y1="95" x2="230" y2="115"/>
+          <line class="wire" id="s2i" x1="230" y1="115" x2="35" y2="115"/>
+          <line class="wire" x1="35" y1="91" x2="35" y2="115"/>
+        </svg>
+      </div>
+      <div class="result">
+        <div class="truth">A=1 B=0 → <span class="y">通</span></div>
+        <div class="truth">A=0 B=0 → <span class="n">不通</span></div>
+        <div class="truth" style="margin-top:5px"><b>任一高就通 = 或</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="dock">
+  <div class="speaker staff" id="spk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>
+    <span class="name">场务</span>
+  </div>
+  <div class="dialogue" id="dlg"><span class="cursor"></span></div>
+  <div class="nav"><a href="02-晶体管是开关-交互版.html">‹ 上一页</a><a href="../逻辑电路卷目录.html">目录</a><a href="03b-逻辑门全家福-交互版.html">下一页 ›</a></div>
+  <div class="action" id="cont">Action ▸</div>
+</div>
+<script>
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),cont=document.getElementById('cont');
+const row1=document.getElementById('row1'),row2=document.getElementById('row2');
+let step=0,typing=false,pending=null,curText='';
+const icons={
+  staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>',
+  tr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="12" x2="11" y2="12"/><line x1="11" y1="7" x2="11" y2="17"/><line x1="13" y1="8" x2="13" y2="11"/><line x1="13" y1="13" x2="13" y2="16"/><line x1="13" y1="9" x2="20" y2="9"/><line x1="13" y1="15" x2="20" y2="15"/></svg>'
+};
+function setSpeaker(r,n){spk.className='speaker '+r;spk.innerHTML=icons[r]+'<span class="name">'+n+'</span>';}
+function type(t){curText=t;typing=true;return new Promise(res=>{pending=res;let i=0;dlg.innerHTML='<span class="cursor"></span>';const tick=()=>{if(!typing)return;if(i<t.length){dlg.innerHTML=t.slice(0,i+1)+'<span class="cursor"></span>';i++;setTimeout(tick,32);}else{typing=false;pending=null;res();}};tick();});}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function setGate(elLbl,elGw,elGn,val){elLbl.textContent=(elLbl.id==='gA'||elLbl.id==='gA2')?('A='+val):('B='+val);elLbl.className='lbl key '+(val?'on':'off');elGw.className.baseVal='gw '+(val?'active':'inactive');elGn.className.baseVal='gnode '+(val?'on':'off');}
+function setChan(el,val){el.className.baseVal='chan '+(val?'cond':'broken');}
+function setRow1(a,b){
+  setGate(document.getElementById('gA'),document.getElementById('gw1'),document.getElementById('gn1'),a);
+  setGate(document.getElementById('gB'),document.getElementById('gw2'),document.getElementById('gn2'),b);
+  setChan(document.getElementById('ch1'),a);
+  setChan(document.getElementById('ch2'),b);
+  const on=a&&b;
+  ['s1a','s1b','s1c','s1d','s1e','s1f','s1g'].forEach(id=>document.getElementById(id).classList.toggle('on',on));
+  document.getElementById('bulb1').className.baseVal='bulb '+(on?'lit':'dead');
+}
+function setRow2(a,b){
+  setGate(document.getElementById('gA2'),document.getElementById('gwA'),document.getElementById('gnA'),a);
+  setGate(document.getElementById('gB2'),document.getElementById('gwB'),document.getElementById('gnB'),b);
+  setChan(document.getElementById('chA'),a);
+  setChan(document.getElementById('chB'),b);
+  const on=a||b;
+  ['s2a','s2b','s2c','s2d','s2d2','s2d3','s2d4','s2e','s2f','s2g','s2h','s2i'].forEach(id=>document.getElementById(id).classList.toggle('on',on));
+  document.getElementById('bulb2').className.baseVal='bulb '+(on?'lit':'dead');
+}
+async function goStep(n){
+  cont.classList.remove('show');cont.textContent='Action ▸';
+  if(n===1){row1.classList.add('active');setSpeaker('staff','场务');await type('这场看晶体管怎么连接出逻辑。先看上面——两个晶体管串联。');}
+  else if(n===2){setRow1(1,0);await wait(550);setSpeaker('staff','场务');await type('A 栅极高、晶体管1 通了，但 B 栅极低、晶体管2 断着——通道还是不通。');}
+  else if(n===3){setRow1(1,1);await wait(600);setSpeaker('tr','与门');await type('两个栅极都高，通道全通，灯亮。串联 = 与，都满足才成立。');}
+  else if(n===4){setRow1(0,0);row2.classList.add('active');setSpeaker('staff','场务');await type('再看下面——两个晶体管并联。任一栅极高，通道就通。');}
+  else if(n===5){setRow2(1,0);await wait(600);setSpeaker('tr','或门');await type('A 高 B 低，电流走 A 这条路，灯照样亮。并联 = 或，任一满足就成立。');}
+  else if(n===6){setRow2(0,0);setSpeaker('staff','场务');await type('串联是与，并联是或。再加个反相就是非——下一场，全家福见每个门长啥样。');cont.textContent='Action · 下一场 ▸';}
+  if(n<6)cont.classList.add('show');
+}
+function advance(){if(typing){typing=false;dlg.innerHTML=curText+'<span class="cursor"></span>';if(pending){pending();pending=null;}return;}if(step<6){step++;goStep(step);}else{window.location.href='03b-逻辑门全家福-交互版.html';}}
+function reset(){step=0;typing=false;pending=null;curText='';setRow1(0,0);setRow2(0,0);row1.classList.remove('active');row2.classList.remove('active');setSpeaker('staff','场务');dlg.innerHTML='<span class="cursor"></span>';cont.textContent='喊 Action 开拍 ▸';cont.classList.add('show');}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight'){e.preventDefault();advance();}else if(e.code==='Backspace'||e.code==='ArrowLeft'){e.preventDefault();reset();}});
+reset();
+</script>
+</body>
+</html>

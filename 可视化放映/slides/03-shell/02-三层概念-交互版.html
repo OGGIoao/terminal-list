@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三层概念 · 剧组版</title>
+<style>
+  :root{
+    --bg:#fafafa; --surface:#fff; --hair:#e2e2e2;
+    --text:#1a1a1a; --muted:#9a9a9a;
+    --accent:#002FA7; --accent-bg:#E6EBF5; --accent-soft:#EEF2FB;
+    --r-zsh:#002FA7; --r-nar:#6a6a6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+  }
+  .slide{
+    width:min(980px,95vw); height:min(660px,93vh);
+    display:flex; flex-direction:column; gap:0; padding:38px 46px; position:relative;
+  }
+  header.sl-h{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:1px solid var(--hair); padding-bottom:16px; margin-bottom:14px;
+  }
+  header.sl-h h1{font-size:24px; font-weight:500; letter-spacing:.2px}
+  header.sl-h .crumb{font-size:12px; color:var(--muted); letter-spacing:.6px; text-transform:uppercase}
+  header.sl-h .crumb b{color:var(--accent); font-weight:500}
+
+  .stage{flex:1; display:flex; align-items:center; justify-content:center}
+  .chain-wrap{width:100%; position:relative; padding-top:40px}
+  .traveler{
+    position:absolute; top:0; left:0; display:flex; flex-direction:column; align-items:center; gap:2px;
+    transition:left .5s cubic-bezier(.4,0,.2,1); opacity:0;
+  }
+  .traveler.on{opacity:1}
+  .traveler .tag{
+    background:var(--accent); color:#fff; font-family:"SF Mono",Menlo,monospace;
+    font-size:12px; font-weight:500; padding:3px 9px;
+  }
+  .traveler .stem{width:1px; height:20px; background:var(--accent)}
+
+  .chain{display:flex; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair)}
+  .node{
+    flex:1; padding:28px 8px 22px; display:flex; flex-direction:column; align-items:center; gap:10px;
+    border-right:1px solid var(--hair); position:relative;
+    transition:background .35s, opacity .4s;
+    opacity:0; transform:translateY(8px);
+  }
+  .node:last-child{border-right:none}
+  .node.show{opacity:1; transform:none}
+  .node .ic{width:40px; height:40px; stroke:var(--muted); fill:none; stroke-width:1.5; transition:stroke .3s, fill .3s}
+  .node .nm{font-size:14px; font-weight:500; letter-spacing:.2px; transition:color .3s}
+  .node .sub{font-size:11px; color:var(--muted); text-align:center; line-height:1.5; transition:color .3s}
+  .node.lit{background:var(--accent-soft)}
+  .node.lit .ic, .node.lit .nm{stroke:var(--accent); color:var(--accent)}
+  .node.lit .sub{color:var(--accent)}
+  .node.hero.lit{background:var(--accent-bg); box-shadow:inset 0 0 0 2px var(--accent)}
+  .node.hero.lit .ic{fill:var(--accent); stroke:var(--accent)}
+  .node.hero.lit .ic rect, .node.hero.lit .ic path, .node.hero.lit .ic line{stroke:#fff}
+
+  .dialogue{
+    border-left:3px solid var(--r-nar); padding:14px 0 14px 18px;
+    min-height:84px; margin-top:14px; transition:border-color .3s;
+  }
+  .dialogue[data-role="zsh"]{border-color:var(--r-zsh)}
+  .dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{font-size:13px; letter-spacing:.3px; display:flex; align-items:center; gap:7px; margin-bottom:8px; font-weight:500; color:var(--r-nar)}
+  .dialogue[data-role="zsh"] .speaker{color:var(--r-zsh)}
+  .speaker .spk-ic{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px; border:1px solid currentColor; font-size:11px; letter-spacing:.4px}
+  .type-text{font-size:18px; line-height:1.7; min-height:30px}
+  .type-cursor{display:inline-block; width:9px; height:20px; background:var(--r-nar); vertical-align:-4px; margin-left:2px; animation:blink .7s step-end infinite}
+  .dialogue[data-role="zsh"] .type-cursor{background:var(--r-zsh)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px; color:var(--accent); letter-spacing:.5px; margin-top:10px; opacity:0; transition:.3s}
+  .continue.show{opacity:1; animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:.4} 50%{opacity:1}}
+  .progress{position:absolute; top:14px; right:20px; display:flex; gap:4px}
+  .progress .dot{width:18px; height:3px; background:var(--hair); transition:.3s}
+  .progress .dot.on{background:var(--accent)}
+  .replay-btn{position:absolute; bottom:14px; right:20px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:7px 16px; font-size:12px; cursor:pointer; border-radius:0; letter-spacing:.5px; text-transform:uppercase; font-family:inherit; z-index:5}
+  .replay-btn:hover{background:var(--accent); color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="01-封面-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="03-Windows对照-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-keyboard" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" fill="none" stroke-width="1.5"/><line x1="6" y1="11" x2="6.1" y2="11" stroke-width="2.2" stroke-linecap="round"/><line x1="10" y1="11" x2="10.1" y2="11" stroke-width="2.2" stroke-linecap="round"/><line x1="14" y1="11" x2="14.1" y2="11" stroke-width="2.2" stroke-linecap="round"/><line x1="18" y1="11" x2="18.1" y2="11" stroke-width="2.2" stroke-linecap="round"/><line x1="8" y1="14.5" x2="16" y2="14.5" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="none" stroke-width="1.5"/><path d="M6 9 l3 3 -3 3" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="ic-pipe" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="6" fill="none" stroke-width="1.5"/><rect x="8" y="15" width="8" height="6" fill="none" stroke-width="1.5"/><line x1="12" y1="9" x2="12" y2="15" stroke-width="1.5"/></symbol>
+    <symbol id="ic-shell" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke-width="1.5"/><path d="M7 9 l3 3 -3 3" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="ic-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="none" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" fill="none" stroke-width="1.5"/><line x1="9" y1="3" x2="9" y2="6" stroke-width="1.5"/><line x1="15" y1="3" x2="15" y2="6" stroke-width="1.5"/><line x1="9" y1="18" x2="9" y2="21" stroke-width="1.5"/><line x1="15" y1="18" x2="15" y2="21" stroke-width="1.5"/><line x1="3" y1="9" x2="6" y2="9" stroke-width="1.5"/><line x1="3" y1="15" x2="6" y2="15" stroke-width="1.5"/><line x1="18" y1="9" x2="21" y2="9" stroke-width="1.5"/><line x1="18" y1="15" x2="21" y2="15" stroke-width="1.5"/></symbol>
+    <symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div class="slide">
+  <header class="sl-h">
+    <h1>终端 / Shell / TTY：三个不同的东西</h1>
+    <div class="crumb">场 02 · <b>三层概念</b></div>
+  </header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+  <div class="stage">
+    <div class="chain-wrap">
+      <div class="traveler" id="traveler"><span class="tag">ls</span><span class="stem"></span></div>
+      <div class="chain" id="chain">
+        <div class="node" data-i="0"><svg class="ic"><use href="#ic-keyboard"/></svg><span class="nm">你 / 键盘</span><span class="sub">敲下命令</span></div>
+        <div class="node" data-i="1"><svg class="ic"><use href="#ic-terminal"/></svg><span class="nm">终端</span><span class="sub">窗口程序</span></div>
+        <div class="node" data-i="2"><svg class="ic"><use href="#ic-pipe"/></svg><span class="nm">TTY</span><span class="sub">中转站</span></div>
+        <div class="node hero" data-i="3"><svg class="ic"><use href="#ic-shell"/></svg><span class="nm">Shell (zsh)</span><span class="sub">解释器</span></div>
+        <div class="node" data-i="4"><svg class="ic"><use href="#ic-chip"/></svg><span class="nm">内核</span><span class="sub">执行</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialogue" id="dlg" data-role="narrator">
+    <div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div>
+    <span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span>
+    <div class="continue" id="cont">Action ▸</div>
+  </div>
+  <button class="replay-btn" onclick="event.stopPropagation(); reset(); advance();">NG · 再拍一条</button>
+</div>
+
+<script>
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const nodes=[...document.querySelectorAll('#chain .node')];
+const traveler=document.getElementById('traveler');
+const dots=[...document.querySelectorAll('#progress .dot')];
+const dlg=document.getElementById('dlg'), spk=document.getElementById('spk'), tt=document.getElementById('tt'), cont=document.getElementById('cont');
+
+let step=0, typing=false, typeTimer=null, pending=null, lock=false, curText='';
+const TOTAL=6;
+
+function setDots(n){ dots.forEach((d,j)=>d.classList.toggle('on', j<n)); }
+function setSpeaker(role,label,icon){ dlg.dataset.role=role; spk.innerHTML='<svg class="spk-ic"><use href="#'+icon+'"/></svg><span class="spk-nm">'+label+'</span>'; }
+function moveTraveler(i){
+  const wrap=document.querySelector('.chain-wrap').getBoundingClientRect();
+  const r=nodes[i].getBoundingClientRect();
+  traveler.style.left=(r.left-wrap.left+r.width/2-15)+'px';
+}
+function showNodes(){ nodes.forEach((n,i)=>setTimeout(()=>n.classList.add('show'), i*90)); }
+
+function typeSpeak(role,label,icon,text){
+  curText=text;
+  return new Promise(res=>{
+    pending=res; typing=true; setSpeaker(role,label,icon);
+    tt.textContent=''; cont.classList.remove('show');
+    let i=0;
+    typeTimer=setInterval(()=>{
+      tt.textContent=text.slice(0,++i);
+      if(i>=text.length){ clearInterval(typeTimer); typing=false; cont.classList.add('show'); pending=null; res(); }
+    },42);
+  });
+}
+function fastFinish(){
+  if(!typing) return false;
+  clearInterval(typeTimer); tt.textContent=curText; typing=false; cont.classList.add('show');
+  if(pending){ const r=pending; pending=null; r(); } return true;
+}
+
+async function goStep(n){
+  setDots(n);
+  if(n===1){
+    showNodes();
+    await wait(700);
+    traveler.classList.add('on'); moveTraveler(0); nodes[0].classList.add('lit');
+    await wait(550);
+    await typeSpeak('narrator','场务','ic-bubble','这场我搭了条流水线——���敲的 ls，要先穿好几站才轮到 zsh。');
+  } else if(n===2){
+    moveTraveler(1); nodes[1].classList.add('lit');
+    await wait(550);
+    await typeSpeak('narrator','场务','ic-bubble','第一站，终端——这个窗口只管显示字符，啥命令都不懂。');
+  } else if(n===3){
+    moveTraveler(2); nodes[2].classList.add('lit');
+    await wait(550);
+    await typeSpeak('narrator','场务','ic-bubble','中间这站叫 TTY，字符在这里缓冲，Ctrl+C 也归它管。');
+  } else if(n===4){
+    moveTraveler(3); nodes[3].classList.add('lit');
+    await wait(600);
+    await typeSpeak('zsh','zsh','ic-terminal','轮到我了——Shell，我才是解释命令的脑子。');
+  } else if(n===5){
+    moveTraveler(4); nodes[4].classList.add('lit');
+    await wait(550);
+    await typeSpeak('narrator','场务','ic-bubble','我把 ls 交给内核执行，结果原路送回你眼里。');
+  } else if(n===6){
+    await typeSpeak('narrator','场务','ic-bubble','终端是壳，TTY 是管道，Shell 是脑子。Windows 那边又是另一套……下场上新景了。');
+    cont.textContent='Action · 下一场 ▸'; cont.classList.add('show');
+  }
+}
+
+function reset(){
+  step=0; lock=false;
+  nodes.forEach(n=>n.classList.remove('show','lit'));
+  traveler.classList.remove('on'); traveler.style.left='0';
+  setDots(0); setSpeaker('narrator','场务','ic-bubble'); tt.textContent='喊 Action 开拍'; cont.classList.remove('show'); cont.textContent='Action ▸';
+}
+async function advance(){
+  if(lock) return;
+  if(fastFinish()) return;
+  if(step>=TOTAL){ reset(); }
+  step++; lock=true;
+  await goStep(step);
+  lock=false;
+}
+document.addEventListener('click', advance);
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){ e.preventDefault(); advance(); }
+});
+</script>
+</body>
+</html>

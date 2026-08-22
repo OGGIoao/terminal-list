@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Starship 实操 · 剧组版</title>
+<style>
+  :root{--bg:#fafafa;--surface:#fff;--hair:#e2e2e2;--text:#1a1a1a;--muted:#9a9a9a;--accent:#002FA7;--accent-soft:#EEF2FB;--r-zsh:#002FA7;--r-nar:#6a6a6a}
+  *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+  .slide{width:min(980px,95vw);height:min(660px,93vh);display:flex;flex-direction:column;gap:0;padding:38px 46px;position:relative}
+  header.sl-h{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:16px;margin-bottom:14px}
+  header.sl-h h1{font-size:24px;font-weight:500}.crumb{font-size:12px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}.crumb b{color:var(--accent);font-weight:500}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center}
+  .flow{display:flex;flex-direction:column;gap:14px;width:100%;max-width:600px}
+  .step{border:1px solid var(--hair);background:var(--surface);padding:16px 20px;display:flex;align-items:center;gap:14px;opacity:0;transform:translateY(8px);transition:.4s}
+  .step.show{opacity:1;transform:none}
+  .step .num{font-family:"SF Mono",Menlo,monospace;font-size:12px;color:var(--muted);width:24px}
+  .step .ic{width:22px;height:22px;stroke:var(--muted);fill:none;stroke-width:1.7;transition:stroke .3s}
+  .step .body{flex:1}
+  .step .cmd{font-family:"SF Mono",Menlo,monospace;font-size:13px;font-weight:500;transition:color .3s}
+  .step .desc{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .step.lit{border-color:var(--accent);background:var(--accent-soft)}
+  .step.lit .ic,.step.lit .cmd{stroke:var(--accent);color:var(--accent)}
+  .step.result .cmd{color:var(--accent)}
+  .prompt-old{font-family:"SF Mono",Menlo,monospace;font-size:13px;color:var(--muted)}
+  .prompt-new{font-family:"SF Mono",Menlo,monospace;font-size:13px}
+  .prompt-new .p1{color:#3B6D11}.prompt-new .p2{color:var(--accent)}.prompt-new .p3{color:#A32D2D}
+  .dialogue{border-left:3px solid var(--r-nar);padding:14px 0 14px 18px;min-height:84px;margin-top:14px;transition:border-color .3s}
+  .dialogue[data-role="zsh"]{border-color:var(--r-zsh)}.dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{font-size:13px;letter-spacing:.3px;display:flex;align-items:center;gap:7px;margin-bottom:8px;font-weight:500;color:var(--r-nar)}
+  .dialogue[data-role="zsh"] .speaker{color:var(--r-zsh)}
+  .speaker .spk-ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px;border:1px solid currentColor;font-size:11px;letter-spacing:.4px}
+  .type-text{font-size:18px;line-height:1.7;min-height:30px}
+  .type-cursor{display:inline-block;width:9px;height:20px;background:var(--r-nar);vertical-align:-4px;margin-left:2px;animation:blink .7s step-end infinite}
+  .dialogue[data-role="zsh"] .type-cursor{background:var(--r-zsh)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px;color:var(--accent);letter-spacing:.5px;margin-top:10px;opacity:0;transition:.3s}
+  .continue.show{opacity:1;animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .progress{position:absolute;top:14px;right:20px;display:flex;gap:4px}.progress .dot{width:18px;height:3px;background:var(--hair);transition:.3s}.progress .dot.on{background:var(--accent)}
+  .replay-btn{position:absolute;bottom:14px;right:20px;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 16px;font-size:12px;cursor:pointer;border-radius:0;letter-spacing:.5px;text-transform:uppercase;font-family:inherit;z-index:5}.replay-btn:hover{background:var(--accent);color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="17-损坏复盘-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="19-安全汇总-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="none" stroke-width="1.7"/><path d="M6 9 l3 3 -3 3" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-file" viewBox="0 0 24 24"><path d="M6 3 h8 l4 4 v14 h-12 z M14 3 v4 h4" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-play" viewBox="0 0 24 24"><path d="M6 4 l14 8 -14 8 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-spark" viewBox="0 0 24 24"><path d="M12 3 l2 7 7 2 -7 2 -2 7 -2 -7 -7 -2 7 -2 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<div class="slide">
+  <header class="sl-h"><h1>Starship：把学的串起来练</h1><div class="crumb">场 18 · <b>Starship</b></div></header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="stage">
+    <div class="flow">
+      <div class="step" data-i="0"><span class="num">01</span><svg class="ic"><use href="#ic-file"/></svg><div class="body"><div class="cmd">cp ~/.zshrc ~/.zshrc.bak</div><div class="desc">先备份（3.7 防御第一招）</div></div></div>
+      <div class="step" data-i="1"><span class="num">02</span><svg class="ic"><use href="#ic-file"/></svg><div class="body"><div class="cmd">echo 'eval "$(starship init zsh)"' >> ~/.zshrc</div><div class="desc">往末尾加两行（3.3 编辑 .zshrc）</div></div></div>
+      <div class="step" data-i="2"><span class="num">03</span><svg class="ic"><use href="#ic-play"/></svg><div class="body"><div class="cmd">eval "$(starship init zsh)"</div><div class="desc">命令替换 + 执行（3.7 $() 机制）</div></div></div>
+      <div class="step" data-i="3"><span class="num">04</span><svg class="ic"><use href="#ic-terminal"/></svg><div class="body"><div class="cmd">source ~/.zshrc</div><div class="desc">让改动生效（3.3 脚本启动时执行）</div></div></div>
+      <div class="step result" data-i="4"><span class="num">05</span><svg class="ic"><use href="#ic-spark"/></svg><div class="body"><div class="cmd"><span class="prompt-old">ioao@mac %</span> → <span class="prompt-new"><span class="p1">~/projects</span> <span class="p2">main</span> <span class="p3">v2.1</span> ❯</span></div><div class="desc">提示符变彩色，带 git 分支/版本</div></div></div>
+    </div>
+  </div>
+  <div class="dialogue" id="dlg" data-role="narrator"><div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div><span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span><div class="continue" id="cont">Action ▸</div></div>
+  <button class="replay-btn" onclick="event.stopPropagation();reset();advance();">NG · 再拍一条</button>
+</div>
+<script>
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const dots=[...document.querySelectorAll('#progress .dot')],steps=[...document.querySelectorAll('.step')];
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),tt=document.getElementById('tt'),cont=document.getElementById('cont');
+let step=0,typing=false,typeTimer=null,pending=null,lock=false,curText='';const TOTAL=6;
+function setDots(n){dots.forEach((d,j)=>d.classList.toggle('on',j<n));}
+function setSpeaker(r,l,i){dlg.dataset.role=r;spk.innerHTML='<svg class="spk-ic"><use href="#'+i+'"/></svg><span class="spk-nm">'+l+'</span>';}
+function typeSpeak(r,l,i,t){curText=t;return new Promise(res=>{pending=res;typing=true;setSpeaker(r,l,i);tt.textContent='';cont.classList.remove('show');let k=0;typeTimer=setInterval(()=>{tt.textContent=t.slice(0,++k);if(k>=t.length){clearInterval(typeTimer);typing=false;cont.classList.add('show');pending=null;res();}},42);});}
+function fast(){if(!typing)return false;clearInterval(typeTimer);tt.textContent=curText;typing=false;cont.classList.add('show');if(pending){const r=pending;pending=null;r();}return true;}
+async function goStep(n){setDots(n);
+  if(n===1){await typeSpeak('narrator','场务','ic-bubble','这场装 Starship——把前面学的串起来练一次。');}
+  else if(n===2){steps[0].classList.add('show','lit');await wait(500);await typeSpeak('narrator','场务','ic-bubble','第一步：备份。改 .zshrc 前先 cp 一份——3.7 的防御第一招。');}
+  else if(n===3){steps[0].classList.remove('lit');steps[1].classList.add('show','lit');await wait(500);await typeSpeak('narrator','场务','ic-bubble','往 ~/.zshrc 末尾加一行 eval——3.3 编辑 .zshrc。');}
+  else if(n===4){steps[1].classList.remove('lit');steps[2].classList.add('show','lit');await wait(500);await typeSpeak('narrator','场务','ic-bubble','eval 执行 starship init 的输出——3.7 的 $() 命令替换。');}
+  else if(n===5){steps[2].classList.remove('lit');steps[3].classList.add('show','lit');await wait(400);steps[3].classList.remove('lit');steps[4].classList.add('show','lit');await wait(500);await typeSpeak('zsh','zsh','ic-terminal','提示符变彩色，带 git 分支和版本了 (¬‿¬)');}
+  else if(n===6){await typeSpeak('narrator','场务','ic-bubble','备份 + 编辑 + 命令替换 + source——全卷知识串了一遍。下一场，安全要点汇总。');cont.textContent='Action · 下一场 ▸';cont.classList.add('show');}
+}
+function reset(){step=0;lock=false;steps.forEach(s=>s.classList.remove('show','lit'));setDots(0);setSpeaker('narrator','场务','ic-bubble');tt.textContent='喊 Action 开拍';cont.classList.remove('show');cont.textContent='Action ▸';}
+async function advance(){if(lock)return;if(fast())return;if(step>=TOTAL)reset();step++;lock=true;await goStep(step);lock=false;}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){e.preventDefault();advance();}});
+</script>
+</body>
+</html>

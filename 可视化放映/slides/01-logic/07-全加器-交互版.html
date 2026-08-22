@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场07·全加器</title>
+<style>
+  :root{--bg:#fafafa;--ink:#0a0a0b;--accent:#002FA7;--hair:#d0d0d4;--staff:#5F5E5A;--muted:#8a8a8e;--red:#A32D2D}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--hair)}
+  .crumb{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+  .crumb b{color:var(--ink);font-weight:500}
+  .ngbtn{font-size:11px;letter-spacing:.5px;color:var(--muted);background:none;border:1px solid var(--hair);padding:6px 14px;cursor:pointer;font-family:inherit}
+  .ngbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .stage{flex:1;display:flex;flex-direction:column;padding:22px 40px 10px;overflow:hidden}
+  .kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  .title{font-size:23px;font-weight:500;letter-spacing:-.5px;margin-bottom:2px}
+  .sub{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .canvas{flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:0;overflow:hidden;padding-bottom:8px}
+  .canvas svg{width:100%;max-width:580px;height:auto}
+  .wire{stroke:var(--hair);stroke-width:1.5;fill:none;transition:stroke .3s,stroke-width .3s}
+  .wire.on{stroke:var(--accent);stroke-width:2.2}
+  .gate{fill:#fff;stroke:var(--hair);stroke-width:1.2;transition:all .3s}
+  .gate.on{stroke:var(--accent);stroke-width:1.8;fill:rgba(0,47,167,.04)}
+  .glbl{font:600 12px ui-sans-serif,system-ui;fill:var(--ink);text-anchor:middle}
+  .gsub{font:500 9px ui-monospace,monospace;fill:var(--muted);text-anchor:middle}
+  .lbl{font:500 11px ui-monospace,monospace;fill:var(--muted)}
+  .lbl.key{fill:var(--ink)}
+  .lbl.hint{fill:var(--staff);font-size:10px;font-style:italic}
+  .val{font:600 14px ui-monospace,monospace;fill:var(--muted);text-anchor:middle}
+  .val.on{fill:var(--accent)}
+  .val.off{fill:var(--red)}
+  .nd{fill:var(--ink)}
+  .photon{fill:var(--accent);opacity:0}
+  .photon.run{animation:fl 1.1s linear infinite}
+  @keyframes fl{0%{opacity:0;transform:translateX(0)}25%{opacity:1}75%{opacity:1}100%{opacity:0;transform:translateX(var(--d,80px))}}
+  .result{font:600 16px ui-monospace,monospace;fill:var(--ink);text-anchor:middle}
+  .result .dec{fill:var(--accent);font-size:13px}
+  .dock{border-top:1px solid var(--hair);padding:18px 40px;height:156px;position:relative;display:flex;flex-direction:column;justify-content:center}
+  .speaker{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+  .speaker svg{width:18px;height:18px}
+  .speaker .name{font-size:12px;letter-spacing:1px;font-weight:500;text-transform:uppercase}
+  .speaker.staff{color:var(--staff)}
+  .speaker.tr{color:var(--accent)}
+  .dialogue{font-size:16px;line-height:1.5;min-height:52px;max-width:840px}
+  .dialogue .cursor{display:inline-block;width:9px;height:18px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:bk 1s steps(2) infinite}
+  @keyframes bk{50%{opacity:0}}
+  .action{position:absolute;right:40px;bottom:16px;font-size:12px;color:var(--muted);letter-spacing:.5px;opacity:0;transition:opacity .3s}
+  .action.show{opacity:1;color:var(--accent)}
+  .nav{position:absolute;left:40px;bottom:16px;display:flex;gap:16px;font-size:11px;letter-spacing:.5px}
+  .nav a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--hair)}
+  .nav a:hover{color:var(--accent);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="crumb">场 07 · <b>全加器</b></div>
+  <button class="ngbtn" onclick="reset()">NG · 再拍一条</button>
+</div>
+<div class="stage">
+  <div class="kicker">L1 逻辑电路 · 处理进位</div>
+  <div class="title">全加器：半加器的升级版，能接住低位的进位</div>
+  <div class="sub">两个半加器 + 一个或门，接力完成 A + B + Cin</div>
+  <div class="canvas">
+    <svg viewBox="0 0 580 230">
+      <!-- 输入 -->
+      <circle class="nd" cx="30" cy="40" r="3"/>
+      <text class="lbl key" x="22" y="44" text-anchor="end">A</text>
+      <text class="val" id="vA" x="22" y="30" text-anchor="end">0</text>
+      <circle class="nd" cx="30" cy="80" r="3"/>
+      <text class="lbl key" x="22" y="84" text-anchor="end">B</text>
+      <text class="val" id="vB" x="22" y="70" text-anchor="end">0</text>
+      <circle class="nd" cx="30" cy="140" r="3"/>
+      <text class="lbl key" x="22" y="144" text-anchor="end">Cin</text>
+      <text class="val" id="vCi" x="22" y="130" text-anchor="end">0</text>
+      <text class="lbl hint" x="60" y="155">↑ 来自低位</text>
+      <!-- A,B 到 HA1 -->
+      <line class="wire" id="wA" x1="30" y1="40" x2="100" y2="40"/>
+      <line class="wire" id="wA2" x1="100" y1="40" x2="100" y2="45"/>
+      <line class="wire" id="wB" x1="30" y1="80" x2="100" y2="80"/>
+      <line class="wire" id="wB2" x1="100" y1="80" x2="100" y2="75"/>
+      <circle class="photon" id="pA" cx="35" cy="40" r="3" style="--d:65px"/>
+      <!-- HA1 -->
+      <rect class="gate" id="h1" x="100" y="30" width="80" height="70" rx="2"/>
+      <text class="glbl" x="140" y="60">半加器1</text>
+      <text class="gsub" x="140" y="75">A+B</text>
+      <!-- HA1 输出 S1, C1 -->
+      <line class="wire" id="wS1" x1="180" y1="55" x2="270" y2="55"/>
+      <text class="lbl" x="225" y="48" text-anchor="middle">S1</text>
+      <circle class="photon" id="pS1" cx="185" cy="55" r="3" style="--d:80px"/>
+      <line class="wire" id="wC1a" x1="180" y1="80" x2="180" y2="155"/>
+      <line class="wire" id="wC1b" x1="180" y1="155" x2="430" y2="155"/>
+      <text class="lbl" x="200" y="150">C1</text>
+      <!-- Cin 到 HA2 -->
+      <line class="wire" id="wCi1" x1="30" y1="140" x2="240" y2="140"/>
+      <line class="wire" id="wCi2" x1="240" y1="140" x2="240" y2="95"/>
+      <line class="wire" id="wCi3" x1="240" y1="95" x2="270" y2="95"/>
+      <circle class="photon" id="pCi" cx="35" cy="140" r="3" style="--d:200px"/>
+      <!-- HA2 -->
+      <rect class="gate" id="h2" x="270" y="50" width="80" height="70" rx="2"/>
+      <text class="glbl" x="310" y="80">半加器2</text>
+      <text class="gsub" x="310" y="95">S1+Cin</text>
+      <!-- HA2 输出 Sum, C2 -->
+      <line class="wire" id="wSum" x1="350" y1="75" x2="440" y2="75"/>
+      <text class="lbl key" x="445" y="70">Sum</text>
+      <text class="val" id="vS" x="475" y="80">0</text>
+      <circle class="photon" id="pSum" cx="355" cy="75" r="3" style="--d:80px"/>
+      <line class="wire" id="wC2a" x1="350" y1="100" x2="350" y2="175"/>
+      <line class="wire" id="wC2b" x1="350" y1="175" x2="430" y2="175"/>
+      <text class="lbl" x="375" y="170">C2</text>
+      <!-- OR 门 -->
+      <rect class="gate" id="gor" x="430" y="150" width="60" height="50" rx="2"/>
+      <text class="glbl" x="460" y="178">OR</text>
+      <!-- OR 输出 Carry -->
+      <line class="wire" id="wCar" x1="490" y1="175" x2="545" y2="175"/>
+      <text class="lbl key" x="500" y="170">Carry</text>
+      <text class="val" id="vC" x="555" y="180">0</text>
+      <circle class="photon" id="pCar" cx="495" cy="175" r="3" style="--d:45px"/>
+      <!-- 结果 -->
+      <text class="lbl" x="280" y="210" text-anchor="middle">A + B + Cin =</text>
+      <text class="result" id="vR" x="400" y="210" text-anchor="middle">00 <tspan class="dec"></tspan></text>
+    </svg>
+  </div>
+</div>
+<div class="dock">
+  <div class="speaker staff" id="spk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>
+    <span class="name">场务</span>
+  </div>
+  <div class="dialogue" id="dlg"><span class="cursor"></span></div>
+  <div class="nav"><a href="06-半加器-交互版.html">‹ 上一页</a><a href="../逻辑电路卷目录.html">目录</a><a href="08-MUX多路复用器-交互版.html">下一页 ›</a></div>
+  <div class="action" id="cont">Action ▸</div>
+</div>
+<script>
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),cont=document.getElementById('cont');
+let step=0,typing=false,pending=null,curText='';
+const icons={
+  staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>',
+  tr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="12" x2="11" y2="12"/><line x1="11" y1="7" x2="11" y2="17"/><line x1="13" y1="8" x2="13" y2="11"/><line x1="13" y1="13" x2="13" y2="16"/><line x1="13" y1="9" x2="20" y2="9"/><line x1="13" y1="15" x2="20" y2="15"/></svg>'
+};
+function setSpeaker(r,n){spk.className='speaker '+r;spk.innerHTML=icons[r]+'<span class="name">'+n+'</span>';}
+function type(t){curText=t;typing=true;return new Promise(res=>{pending=res;let i=0;dlg.innerHTML='<span class="cursor"></span>';const tick=()=>{if(!typing)return;if(i<t.length){dlg.innerHTML=t.slice(0,i+1)+'<span class="cursor"></span>';i++;setTimeout(tick,32);}else{typing=false;pending=null;res();}};tick();});}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+function clearAll(){
+  ['wA','wA2','wB','wB2','wS1','wC1a','wC1b','wCi1','wCi2','wCi3','wSum','wC2a','wC2b','wCar'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  ['pA','pS1','pCi','pSum','pCar'].forEach(id=>document.getElementById(id).classList.remove('run'));
+  document.getElementById('h1').classList.remove('on');document.getElementById('h2').classList.remove('on');document.getElementById('gor').classList.remove('on');
+  ['vA','vB','vCi','vS','vC'].forEach(id=>document.getElementById(id).className='val');
+}
+function lightW(ids){ids.forEach(id=>document.getElementById(id).classList.add('on'));}
+function lightP(ids){ids.forEach(id=>document.getElementById(id).classList.add('run'));}
+function setIn(a,b,cin){document.getElementById('vA').textContent=a;document.getElementById('vB').textContent=b;document.getElementById('vCi').textContent=cin;}
+function setOut(s,c){document.getElementById('vS').textContent=s;document.getElementById('vC').textContent=c;}
+function setResult(c,s){const dec=parseInt(c+''+s,2);document.getElementById('vR').innerHTML=c+''+s+' <tspan class="dec">(= '+dec+')</tspan>';}
+async function goStep(n){
+  cont.classList.remove('show');cont.textContent='Action ▸';
+  if(n===1){clearAll();setIn(0,0,0);setOut(0,0);setResult(0,0);setSpeaker('staff','场务');await type('上一场半加器有个缺点——它只会算 A+B，不会处理进位输入。可多位加法时，低位算完的进位得传给高位啊。全加器就是来解决这个的。');}
+  else if(n===2){clearAll();setIn(1,1,0);setOut(0,0);setResult(0,0);lightW(['wA','wA2','wB','wB2']);lightP(['pA']);document.getElementById('vA').className='val on';document.getElementById('vB').className='val on';await wait(550);setSpeaker('staff','场务');await type('看，全加器多了个 Cin——来自低位的进位。先把 A=1、B=1 送进半加器1，和上页一样。');}
+  else if(n===3){lightW(['wS1','wC1a','wC1b']);lightP(['pS1']);document.getElementById('h1').classList.add('on');await wait(600);setSpeaker('staff','场务');await type('半加器1 算完：部分和 S1=0（1 异或 1），进位 C1=1（1 与 1，满 2 进位）。');}
+  else if(n===4){setSpeaker('staff','场务');await type('这个部分和 S1 顺着线流向半加器2，它要和 Cin 再加一次——这就是全加器比半加器多干的事。');}
+  else if(n===5){setIn(1,1,1);lightW(['wCi1','wCi2','wCi3']);lightP(['pCi']);document.getElementById('vCi').className='val on';document.getElementById('h2').classList.add('on');setOut(1,0);document.getElementById('vS').className='val on';lightP(['pSum']);await wait(650);setSpeaker('staff','场务');await type('Cin=1 传进来：S1=0 加 Cin=1，半加器2 算出最终和 Sum=1，它的小进位 C2=0。');}
+  else if(n===6){lightW(['wC2a','wC2b','wCar']);lightP(['pCar']);document.getElementById('gor').classList.add('on');setOut(1,1);document.getElementById('vC').className='val on';setResult(1,1);await wait(550);setSpeaker('staff','场务');await type('两个进位 C1 和 C2 汇到或门——C1=1，所以最终进位 Carry=1。');}
+  else if(n===7){setSpeaker('tr','全加器');await type('1+1+1，和 1 进位 1，二进制 11——就是十进制的 3。低位传来的进位，我接住了。');}
+  else if(n===8){clearAll();setIn(0,0,0);setOut(0,0);setResult(0,0);setSpeaker('staff','场务');await type('全加器能接住低位的进位了。多个全加器串起来——Cin 接低位的 Carry——就能算多位加法。下一场看怎么串。');cont.textContent='Action · 下一场 ▸';}
+  if(n<8)cont.classList.add('show');
+}
+function advance(){if(typing){typing=false;dlg.innerHTML=curText+'<span class="cursor"></span>';if(pending){pending();pending=null;}return;}if(step<8){step++;goStep(step);}else{window.location.href='08-MUX多路复用器-交互版.html';}}
+function reset(){step=0;typing=false;pending=null;curText='';clearAll();setIn(0,0,0);setOut(0,0);setResult(0,0);setSpeaker('staff','场务');dlg.innerHTML='<span class="cursor"></span>';cont.textContent='喊 Action 开拍 ▸';cont.classList.add('show');}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight'){e.preventDefault();advance();}else if(e.code==='Backspace'||e.code==='ArrowLeft'){e.preventDefault();reset();}});
+reset();
+</script>
+</body>
+</html>

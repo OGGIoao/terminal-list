@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全 not found 真相 · 剧组版</title>
+<style>
+  :root{
+    --bg:#fafafa; --surface:#fff; --hair:#e2e2e2;
+    --text:#1a1a1a; --muted:#9a9a9a;
+    --accent:#002FA7; --accent-bg:#E6EBF5; --accent-soft:#EEF2FB;
+    --warn:#D4392B; --warn-bg:#FBEDEB;
+    --r-zsh:#002FA7; --r-nar:#6a6a6a; --r-claude:#534AB7; --r-res:#D4392B;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+  }
+  .slide{
+    width:min(980px,95vw); height:min(660px,93vh);
+    display:flex; flex-direction:column; gap:0; padding:38px 46px; position:relative;
+  }
+  header.sl-h{display:flex; align-items:baseline; justify-content:space-between; border-bottom:1px solid var(--hair); padding-bottom:16px; margin-bottom:14px}
+  header.sl-h h1{font-size:24px; font-weight:500; letter-spacing:.2px}
+  header.sl-h .crumb{font-size:12px; color:var(--muted); letter-spacing:.6px; text-transform:uppercase}
+  header.sl-h .crumb b{color:var(--accent); font-weight:500}
+
+  .stage{flex:1; position:relative; display:flex; align-items:center; justify-content:center}
+  .scene{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .4s}
+  .scene.active{opacity:1}
+
+  .file-card{border:1px solid var(--hair); background:var(--surface); width:460px}
+  .file-head{display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--hair)}
+  .file-head .ic{width:24px; height:24px; stroke:var(--accent); fill:none; stroke-width:1.6}
+  .file-head .nm{font-family:"SF Mono",Menlo,monospace; font-size:14px; font-weight:500}
+  .code{padding:16px 18px; font-family:"SF Mono",Menlo,monospace; font-size:14px; line-height:2.2}
+  .code .ln{display:block; position:relative; padding-left:22px; transition:color .3s, background .3s}
+  .code .ln::before{content:attr(data-n); position:absolute; left:0; color:var(--miss); font-size:12px; width:16px; text-align:right}
+  .code .ln.err{color:var(--warn); background:var(--warn-bg)}
+  .code .ln.err::before{color:var(--warn)}
+  .code .ln.gray{color:var(--muted); text-decoration:line-through}
+  .crack{position:absolute; left:50%; transform:translateX(-50%); width:2px; background:var(--warn); height:0; transition:height .6s ease; box-shadow:0 0 0 2px var(--warn-bg)}
+
+  .chain{display:flex; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); width:100%}
+  .chain .dir{flex:1; padding:24px 8px 18px; display:flex; flex-direction:column; align-items:center; gap:10px; border-right:1px solid var(--hair); position:relative; transition:opacity .4s}
+  .chain .dir:last-child{border-right:none}
+  .chain .dir .ic{width:34px; height:34px; stroke:var(--muted); fill:none; stroke-width:1.6; transition:stroke .3s}
+  .chain .dir .nm{font-family:"SF Mono",Menlo,monospace; font-size:12px; color:var(--muted)}
+  .chain .dir.gap{border:2px dashed var(--warn); background:var(--warn-bg); margin:6px}
+  .chain .dir.gap .ic, .chain .dir.gap .nm{stroke:var(--warn); color:var(--warn)}
+  .chain .dir.scanned{opacity:.3}
+
+  .cmd-box{font-family:"SF Mono",Menlo,monospace; font-size:16px; display:flex; align-items:center; gap:8px; margin-bottom:20px}
+  .cmd-box .pr{color:var(--accent)}
+  .cmd-box .nf{color:var(--warn); font-weight:500; opacity:0; transition:.3s}
+  .cmd-box .nf.show{opacity:1}
+  .finder{position:absolute; top:34px; width:24px; height:24px; stroke:var(--accent); fill:none; stroke-width:2; transition:left .45s cubic-bezier(.4,0,.2,1); opacity:0}
+  .finder.on{opacity:1}
+
+  .dialogue{border-left:3px solid var(--r-nar); padding:14px 0 14px 18px; min-height:84px; margin-top:14px; transition:border-color .3s}
+  .dialogue[data-role="zsh"]{border-color:var(--r-zsh)}
+  .dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .dialogue[data-role="claude"]{border-color:var(--r-claude)}
+  .dialogue[data-role="result"]{border-color:var(--r-res)}
+  .speaker{font-size:13px; letter-spacing:.3px; display:flex; align-items:center; gap:7px; margin-bottom:8px; font-weight:500; color:var(--r-nar)}
+  .dialogue[data-role="zsh"] .speaker{color:var(--r-zsh)}
+  .dialogue[data-role="claude"] .speaker{color:var(--r-claude)}
+  .dialogue[data-role="result"] .speaker{color:var(--r-res)}
+  .speaker .spk-ic{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px; border:1px solid currentColor; font-size:11px; letter-spacing:.4px}
+  .type-text{font-size:18px; line-height:1.7; min-height:30px}
+  .type-cursor{display:inline-block; width:9px; height:20px; background:var(--r-nar); vertical-align:-4px; margin-left:2px; animation:blink .7s step-end infinite}
+  .dialogue[data-role="zsh"] .type-cursor{background:var(--r-zsh)}
+  .dialogue[data-role="claude"] .type-cursor{background:var(--r-claude)}
+  .dialogue[data-role="result"] .type-cursor{background:var(--r-res)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px; color:var(--accent); letter-spacing:.5px; margin-top:10px; opacity:0; transition:.3s}
+  .continue.show{opacity:1; animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:.4} 50%{opacity:1}}
+  .progress{position:absolute; top:14px; right:20px; display:flex; gap:4px}
+  .progress .dot{width:18px; height:3px; background:var(--hair); transition:.3s}
+  .progress .dot.on{background:var(--accent)}
+  .replay-btn{position:absolute; bottom:14px; right:20px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:7px 16px; font-size:12px; cursor:pointer; border-radius:0; letter-spacing:.5px; text-transform:uppercase; font-family:inherit; z-index:5}
+  .replay-btn:hover{background:var(--accent); color:#fff}
+  .epilogue{border-left:3px solid var(--warn); padding:10px 0 10px 18px; font-size:13.5px; line-height:1.7; opacity:0; transition:.5s; margin-top:10px}
+  .epilogue.show{opacity:1}
+  .epilogue b{color:var(--warn); font-weight:500}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="06-zshrc是什么-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="08-安全视角-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-file" viewBox="0 0 24 24"><path d="M6 3 h8 l4 4 v14 h-12 z M14 3 v4 h4" fill="none" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 7 h6 l2 2 h10 v10 h-18 z" fill="none" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke-width="2"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="ic-terminal" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" fill="none" stroke-width="1.7"/><path d="M6 9 l3 3 -3 3" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><line x1="13" y1="15" x2="17" y2="15" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="ic-block" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke-width="1.7"/><rect x="9" y="9" width="6" height="6" fill="none" stroke-width="1.7"/></symbol>
+    <symbol id="ic-warn" viewBox="0 0 24 24"><path d="M12 3 l10 18 h-20 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="15" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<div class="slide">
+  <header class="sl-h">
+    <h1>全 command not found 的真相</h1>
+    <div class="crumb">场 07 · <b>全 not found 真相</b></div>
+  </header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+  <div class="stage">
+    <div class="scene" id="s1">
+      <div class="file-card">
+        <div class="file-head"><svg class="ic"><use href="#ic-file"/></svg><span class="nm">~/.zshrc</span></div>
+        <div class="code">
+          <span class="ln" data-n="1">export NVM_DIR="$HOME/.nvm"</span>
+          <span class="ln" data-n="2" id="ln-expert">expert NVM_DIR="$HOME/.nvm"</span>
+          <span class="ln" data-n="3">[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"</span>
+        </div>
+      </div>
+    </div>
+    <div class="scene" id="s2">
+      <div class="file-card" style="position:relative">
+        <div class="file-head"><svg class="ic"><use href="#ic-file"/></svg><span class="nm">~/.zshrc</span></div>
+        <div class="code">
+          <span class="ln" data-n="1">export NVM_DIR="$HOME/.nvm"</span>
+          <span class="ln err" data-n="2">expert NVM_DIR="$HOME/.nvm"</span>
+          <span class="ln gray" data-n="3" id="ln3">[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"</span>
+        </div>
+        <div class="crack" id="crack"></div>
+      </div>
+    </div>
+    <div class="scene" id="s3">
+      <div style="width:100%">
+        <div class="chain">
+          <div class="dir"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/local/bin</span></div>
+          <div class="dir"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/bin</span></div>
+          <div class="dir gap"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">node bin ✕</span></div>
+          <div class="dir"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/bin</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="scene" id="s4">
+      <div style="width:100%; position:relative">
+        <div class="cmd-box"><span class="pr">ioao@mac %</span> claude<span class="nf" id="nf"> → command not found</span></div>
+        <svg class="finder" id="f4"><use href="#ic-search"/></svg>
+        <div class="chain" id="chain4">
+          <div class="dir" data-hit="false"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/local/bin</span></div>
+          <div class="dir" data-hit="false"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/bin</span></div>
+          <div class="dir" data-hit="false"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/bin</span></div>
+          <div class="dir" data-hit="false"><svg class="ic"><use href="#ic-folder"/></svg><span class="nm">/usr/sbin</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialogue" id="dlg" data-role="narrator">
+    <div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div>
+    <span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span>
+    <div class="continue" id="cont">Action ▸</div>
+  </div>
+  <div class="epilogue" id="epilogue"><b>安全点睛：</b>上面是手误。要是被恶意写入——断的不只是命令，是你的终端控制权。</div>
+  <button class="replay-btn" onclick="event.stopPropagation(); reset(); advance();">NG · 再拍一条</button>
+</div>
+
+<script>
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const scenes=['s1','s2','s3','s4'].map(id=>document.getElementById(id));
+const dots=[...document.querySelectorAll('#progress .dot')];
+const dlg=document.getElementById('dlg'), spk=document.getElementById('spk'), tt=document.getElementById('tt'), cont=document.getElementById('cont');
+const epi=document.getElementById('epilogue');
+
+let step=0, typing=false, typeTimer=null, pending=null, lock=false, curText='';
+const TOTAL=6;
+
+function setDots(n){ dots.forEach((d,j)=>d.classList.toggle('on', j<n)); }
+function setSpeaker(role,label,icon){ dlg.dataset.role=role; spk.innerHTML='<svg class="spk-ic"><use href="#'+icon+'"/></svg><span class="spk-nm">'+label+'</span>'; }
+function showScene(i){ scenes.forEach((s,j)=>s.classList.toggle('active', j===i)); }
+
+function typeSpeak(role,label,icon,text){
+  curText=text;
+  return new Promise(res=>{
+    pending=res; typing=true; setSpeaker(role,label,icon);
+    tt.textContent=''; cont.classList.remove('show');
+    let i=0;
+    typeTimer=setInterval(()=>{
+      tt.textContent=text.slice(0,++i);
+      if(i>=text.length){ clearInterval(typeTimer); typing=false; cont.classList.add('show'); pending=null; res(); }
+    },42);
+  });
+}
+function fastFinish(){
+  if(!typing) return false;
+  clearInterval(typeTimer); tt.textContent=curText; typing=false; cont.classList.add('show');
+  if(pending){ const r=pending; pending=null; r(); } return true;
+}
+
+async function goStep(n){
+  setDots(n);
+  if(n===1){
+    showScene(0);
+    await wait(400);
+    document.getElementById('ln-expert').classList.add('err');
+    await wait(550);
+    await typeSpeak('zsh','zsh','ic-terminal','第 2 行…… expert？我不认识这个词，停在这了。');
+  } else if(n===2){
+    showScene(1);
+    await wait(400);
+    document.getElementById('crack').style.height='62px';
+    await wait(700);
+    document.getElementById('ln3').classList.add('gray');
+    await wait(400);
+    await typeSpeak('narrator','场务','ic-bubble','执行一停，下面的 nvm 加载就没跑成。');
+  } else if(n===3){
+    showScene(2);
+    await wait(500);
+    await typeSpeak('narrator','场务','ic-bubble','PATH 里本该有 node 的目录，现在缺了一块。');
+  } else if(n===4){
+    showScene(3);
+    await wait(400);
+    const dirs=[...document.querySelectorAll('#chain4 .dir')];
+    const finder=document.getElementById('f4');
+    const area=document.querySelector('#chain4').getBoundingClientRect();
+    finder.classList.add('on');
+    for(let i=0;i<dirs.length;i++){
+      const r=dirs[i].getBoundingClientRect();
+      finder.style.left=(r.left-area.left+r.width/2-12)+'px';
+      await wait(440);
+      dirs[i].classList.add('scanned');
+    }
+    document.getElementById('nf').classList.add('show');
+    await wait(500);
+    await typeSpeak('claude','claude','ic-block','你敲下我，我翻遍 PATH，找不到自己的家 (´；ω；`)');
+  } else if(n===5){
+    await typeSpeak('result','结果','ic-warn','一个引号错，命令全废。');
+    await wait(300);
+    epi.classList.add('show');
+    cont.textContent='Action · 下一场 ▸'; cont.classList.add('show');
+  } else if(n===6){
+    await typeSpeak('narrator','场务','ic-bubble','这就是 .zshrc 写坏的后果——一个错字，整条链断。下一场，看看它被恶意盯上会怎样。');
+    cont.textContent='点击重播 ↻'; cont.classList.add('show');
+  }
+}
+
+function reset(){
+  step=0; lock=false;
+  epi.classList.remove('show');
+  document.getElementById('crack').style.height='0';
+  document.getElementById('ln3').classList.remove('gray');
+  document.getElementById('ln-expert').classList.remove('err');
+  document.getElementById('nf').classList.remove('show');
+  [...document.querySelectorAll('#chain4 .dir')].forEach(d=>d.classList.remove('scanned'));
+  document.getElementById('f4').classList.remove('on'); document.getElementById('f4').style.left='0';
+  scenes.forEach(s=>s.classList.remove('active'));
+  setDots(0); setSpeaker('narrator','场务','ic-bubble'); tt.textContent='喊 Action 开拍'; cont.classList.remove('show'); cont.textContent='Action ▸';
+}
+async function advance(){
+  if(lock) return;
+  if(fastFinish()) return;
+  if(step>=TOTAL){ reset(); }
+  step++; lock=true;
+  await goStep(step);
+  lock=false;
+}
+document.addEventListener('click', advance);
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){ e.preventDefault(); advance(); }
+});
+</script>
+</body>
+</html>

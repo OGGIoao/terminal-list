@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场02·晶体管是开关</title>
+<style>
+  :root{
+    --bg:#fafafa; --ink:#0a0a0b; --accent:#002FA7; --hair:#d0d0d4;
+    --staff:#5F5E5A; --sw:#185FA5; --amber:#EF9F27; --muted:#8a8a8e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); height:100vh; overflow:hidden; display:flex; flex-direction:column; -webkit-font-smoothing:antialiased}
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 32px; border-bottom:1px solid var(--hair)}
+  .crumb{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted)}
+  .crumb b{color:var(--ink); font-weight:500}
+  .ngbtn{font-size:11px; letter-spacing:.5px; color:var(--muted); background:none; border:1px solid var(--hair); padding:6px 14px; cursor:pointer; font-family:inherit}
+  .ngbtn:hover{border-color:var(--accent); color:var(--accent)}
+  .stage{flex:1; display:flex; flex-direction:column; padding:36px 56px 24px; position:relative; overflow:hidden}
+  .kicker{font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); margin-bottom:8px}
+  .title{font-size:28px; font-weight:500; letter-spacing:-.5px; margin-bottom:6px}
+  .sub{font-size:13px; color:var(--muted); margin-bottom:24px; max-width:560px}
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:0; flex:1; border:1px solid var(--hair)}
+  .pane{padding:28px 32px; display:flex; flex-direction:column; position:relative; opacity:.45; transition:opacity .5s}
+  .pane.active{opacity:1}
+  .pane+.pane{border-left:1px solid var(--hair)}
+  .pane-label{font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:6px}
+  .pane-name{font-size:16px; font-weight:500; margin-bottom:22px}
+  .circuit{flex:1; display:flex; align-items:center; justify-content:center}
+  .circuit svg{width:100%; max-width:360px; height:auto}
+  .wire{stroke:var(--hair); stroke-width:1.5; fill:none; transition:stroke .3s, stroke-width .3s}
+  .wire.on{stroke:var(--accent); stroke-width:2.2}
+  .bulb{fill:none; stroke:var(--hair); stroke-width:1.5; transition:all .3s}
+  .bulb.lit{fill:var(--amber); stroke:var(--amber); filter:drop-shadow(0 0 6px rgba(239,159,39,.5))}
+  .sw-arm{stroke:var(--ink); stroke-width:2.2; fill:none; transition:transform .35s ease; transform-origin:120px 50px}
+  .sw-arm.closed{transform:rotate(0deg)}
+  .sw-arm.open{transform:rotate(-26deg)}
+  .gate-wire{stroke:var(--muted); stroke-width:1.5; fill:none; transition:all .3s}
+  .gate-wire.active{stroke:var(--accent); stroke-width:2.2}
+  .chan{stroke:var(--hair); stroke-width:2; fill:none; transition:all .3s}
+  .chan.cond{stroke:var(--accent); stroke-width:2.6}
+  .lbl{font:500 11px ui-monospace,monospace; fill:var(--muted)}
+  .lbl.on{fill:var(--accent)}
+  .lbl.key{fill:var(--ink)}
+  .pulse{fill:none; stroke:var(--amber); stroke-width:1.5; opacity:0}
+  .pulse.go{animation:pulse 1s ease-out}
+  @keyframes pulse{0%{r:14; opacity:.7}100%{r:26; opacity:0}}
+  .photon{fill:var(--amber); opacity:0}
+  .photon.run{animation:flow 1.4s linear infinite}
+  @keyframes flow{0%{opacity:0; transform:translateX(0)}15%{opacity:1}85%{opacity:1}100%{opacity:0; transform:translateX(130px)}}
+  .dock{border-top:1px solid var(--hair); padding:20px 56px 22px; min-height:128px; position:relative}
+  .speaker{display:flex; align-items:center; gap:9px; margin-bottom:12px}
+  .speaker svg{width:18px; height:18px}
+  .speaker .name{font-size:12px; letter-spacing:1px; font-weight:500; text-transform:uppercase}
+  .speaker.staff{color:var(--staff)}
+  .speaker.sw{color:var(--sw)}
+  .speaker.tr{color:var(--accent)}
+  .dialogue{font-size:18px; line-height:1.55; min-height:60px; max-width:780px; font-weight:400}
+  .dialogue .cursor{display:inline-block; width:9px; height:20px; background:var(--accent); margin-left:2px; vertical-align:text-bottom; animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .action{position:absolute; right:56px; bottom:24px; font-size:12px; color:var(--muted); letter-spacing:.5px; opacity:0; transition:opacity .3s}
+  .action.show{opacity:1; color:var(--accent)}
+  .nav{position:absolute; left:56px; bottom:24px; display:flex; gap:18px; font-size:11px; letter-spacing:.5px; color:var(--muted)}
+  .nav a{color:var(--muted); text-decoration:none; border-bottom:1px solid var(--hair)}
+  .nav a:hover{color:var(--accent); border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="crumb">场 02 · <b>晶体管是开关</b></div>
+  <button class="ngbtn" onclick="reset()">NG · 再拍一条</button>
+</div>
+<div class="stage">
+  <div class="kicker">L1 逻辑电路 · 起点</div>
+  <div class="title">晶体管就是个开关</div>
+  <div class="sub">从墙上开关到电脑里的开关——本质都是"通"和"断"两件事</div>
+  <div class="split">
+    <!-- 左:机械开关 -->
+    <div class="pane" id="paneL">
+      <div class="pane-label">熟悉的世界</div>
+      <div class="pane-name">墙上开关</div>
+      <div class="circuit">
+        <svg viewBox="0 0 320 200">
+          <!-- 电池 -->
+          <line class="wire" x1="50" y1="110" x2="50" y2="150"/>
+          <line class="wire" x1="38" y1="150" x2="62" y2="150"/>
+          <line class="wire" x1="44" y1="156" x2="56" y2="156"/>
+          <text class="lbl" x="50" y="178" text-anchor="middle">电池</text>
+          <!-- 上行 -->
+          <line class="wire" id="wL1" x1="50" y1="110" x2="50" y2="60"/>
+          <line class="wire" id="wL2" x1="50" y1="60" x2="130" y2="60"/>
+          <!-- 开关触点 -->
+          <circle cx="130" cy="60" r="3.5" fill="var(--ink)"/>
+          <circle cx="180" cy="60" r="3.5" fill="var(--ink)"/>
+          <line class="sw-arm open" id="armL" x1="130" y1="60" x2="178" y2="60"/>
+          <text class="lbl" id="swLblL" x="155" y="32" text-anchor="middle">断开</text>
+          <!-- 右行 -->
+          <line class="wire" id="wL3" x1="180" y1="60" x2="260" y2="60"/>
+          <!-- 灯泡 -->
+          <circle class="bulb" id="bulbL" cx="260" cy="60" r="14"/>
+          <circle class="pulse" id="pulseL" cx="260" cy="60" r="14"/>
+          <circle class="photon" id="phL" cx="55" cy="60" r="3.5"/>
+          <text class="lbl" x="260" y="38" text-anchor="middle">灯泡</text>
+          <!-- 回路 -->
+          <line class="wire" x1="260" y1="74" x2="260" y2="150"/>
+          <line class="wire" x1="62" y1="156" x2="260" y2="156"/>
+          <text class="lbl key" x="155" y="100" text-anchor="middle" id="handL">手按</text>
+        </svg>
+      </div>
+    </div>
+    <!-- 右:晶体管 -->
+    <div class="pane" id="paneR">
+      <div class="pane-label">电脑里的世界</div>
+      <div class="pane-name">晶体管 (MOSFET)</div>
+      <div class="circuit">
+        <svg viewBox="0 0 320 200">
+          <!-- 电池(上) -->
+          <line class="wire" x1="160" y1="20" x2="160" y2="40"/>
+          <line class="wire" x1="148" y1="20" x2="172" y2="20"/>
+          <line class="wire" x1="154" y1="14" x2="166" y2="14"/>
+          <text class="lbl" x="185" y="22">电池</text>
+          <!-- 下行到灯泡 -->
+          <line class="wire" id="wR1" x1="160" y1="40" x2="160" y2="70"/>
+          <!-- 灯泡 -->
+          <circle class="bulb" id="bulbR" cx="160" cy="84" r="14"/>
+          <circle class="pulse" id="pulseR" cx="160" cy="84" r="14"/>
+          <circle class="photon" id="phR" cx="160" cy="45" r="3.5"/>
+          <text class="lbl" x="185" y="88">灯泡</text>
+          <!-- 灯泡到漏极D -->
+          <line class="wire" id="wR2" x1="160" y1="98" x2="160" y2="120"/>
+          <!-- 晶体管:漏极D(上) 源极S(下) 栅极G(左) -->
+          <line class="wire" id="wR3" x1="160" y1="120" x2="160" y2="130"/>
+          <line class="chan" id="chanR" x1="148" y1="130" x2="148" y2="158"/>
+          <line class="wire" x1="148" y1="130" x2="160" y2="130"/>
+          <line class="wire" x1="148" y1="158" x2="160" y2="158"/>
+          <line class="wire" id="wR4" x1="160" y1="158" x2="160" y2="178"/>
+          <text class="lbl" x="172" y="134">D</text>
+          <text class="lbl" x="172" y="162">S</text>
+          <!-- 栅极G -->
+          <line class="gate-wire" id="gwR" x1="60" y1="144" x2="140" y2="144"/>
+          <line class="gate-wire" id="gwR2" x1="140" y1="144" x2="140" y2="144"/>
+          <text class="lbl" id="gLbl" x="50" y="148" text-anchor="end">G:0</text>
+          <circle cx="60" cy="144" r="3" fill="var(--muted)" id="gNode"/>
+          <text class="lbl" x="80" y="132">栅极</text>
+          <!-- 回路 -->
+          <line class="wire" x1="160" y1="178" x2="62" y2="178"/>
+          <line class="wire" x1="62" y1="178" x2="62" y2="144"/>
+          <text class="lbl key" x="200" y="150" id="hintR">电压控制</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="dock">
+  <div class="speaker staff" id="spk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>
+    <span class="name">场务</span>
+  </div>
+  <div class="dialogue" id="dlg"><span class="cursor"></span></div>
+  <div class="nav"><a href="01-封面-交互版.html">‹ 上一页</a><a href="../逻辑电路卷目录.html">目录</a><a href="03-用开关搭逻辑门-交互版.html">下一页 ›</a></div>
+  <div class="action" id="cont">Action ▸</div>
+</div>
+<script>
+const dlg=document.getElementById('dlg'), spk=document.getElementById('spk'), cont=document.getElementById('cont');
+const paneL=document.getElementById('paneL'), paneR=document.getElementById('paneR');
+const armL=document.getElementById('armL'), swLblL=document.getElementById('swLblL');
+const wL1=document.getElementById('wL1'), wL2=document.getElementById('wL2'), wL3=document.getElementById('wL3'), bulbL=document.getElementById('bulbL'), pulseL=document.getElementById('pulseL'), phL=document.getElementById('phL');
+const chanR=document.getElementById('chanR'), gwR=document.getElementById('gwR'), gLbl=document.getElementById('gLbl'), gNode=document.getElementById('gNode');
+const wR1=document.getElementById('wR1'), wR2=document.getElementById('wR2'), wR3=document.getElementById('wR3'), wR4=document.getElementById('wR4'), bulbR=document.getElementById('bulbR'), pulseR=document.getElementById('pulseR'), phR=document.getElementById('phR');
+let step=0, typing=false, pending=null, curText='';
+
+const icons={
+  staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5 h13 a2 2 0 0 1 2 2 v7 a2 2 0 0 1 -2 2 h-8 l-4 3 v-3 h-1 a2 2 0 0 1 -2 -2 v-7 a2 2 0 0 1 2 -2 z"/></svg>',
+  sw:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12 L15 7" stroke-linecap="round"/></svg>',
+  tr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="12" x2="11" y2="12"/><line x1="11" y1="7" x2="11" y2="17"/><line x1="13" y1="8" x2="13" y2="11"/><line x1="13" y1="13" x2="13" y2="16"/><line x1="13" y1="9" x2="20" y2="9"/><line x1="13" y1="15" x2="20" y2="15"/></svg>'
+};
+
+function setSpeaker(role,name){
+  spk.className='speaker '+role;
+  spk.innerHTML=icons[role]+'<span class="name">'+name+'</span>';
+}
+
+function type(text){
+  curText=text; typing=true;
+  return new Promise(res=>{
+    pending=res; let i=0;
+    dlg.innerHTML='<span class="cursor"></span>';
+    const cur=dlg.querySelector('.cursor');
+    const tick=()=>{
+      if(!typing){return;}
+      if(i<text.length){
+        dlg.innerHTML=text.slice(0,i+1)+'<span class="cursor"></span>';
+        i++; setTimeout(tick,32);
+      } else {
+        typing=false; pending=null; res();
+      }
+    };
+    tick();
+  });
+}
+
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function lightLeft(on){
+  if(on){
+    armL.className.baseVal='sw-arm closed';
+    swLblL.textContent='闭合';
+    swLblL.classList.add('on');
+    wL1.classList.add('on'); wL2.classList.add('on'); wL3.classList.add('on');
+    bulbL.classList.add('lit');
+    pulseL.classList.add('go');
+    setTimeout(()=>pulseL.classList.remove('go'),1000);
+    phL.classList.add('run');
+  } else {
+    armL.className.baseVal='sw-arm open';
+    swLblL.textContent='断开'; swLblL.classList.remove('on');
+    wL1.classList.remove('on'); wL2.classList.remove('on'); wL3.classList.remove('on');
+    bulbL.classList.remove('lit'); phL.classList.remove('run');
+  }
+}
+
+function lightRight(on){
+  if(on){
+    chanR.classList.add('cond');
+    gwR.classList.add('active');
+    gLbl.textContent='G:1'; gLbl.classList.add('on');
+    gNode.setAttribute('fill','var(--accent)');
+    wR1.classList.add('on'); wR2.classList.add('on'); wR3.classList.add('on'); wR4.classList.add('on');
+    bulbR.classList.add('lit');
+    pulseR.classList.add('go');
+    setTimeout(()=>pulseR.classList.remove('go'),1000);
+    phR.classList.add('run');
+  } else {
+    chanR.classList.remove('cond');
+    gwR.classList.remove('active');
+    gLbl.textContent='G:0'; gLbl.classList.remove('on');
+    gNode.setAttribute('fill','var(--muted)');
+    wR1.classList.remove('on'); wR2.classList.remove('on'); wR3.classList.remove('on'); wR4.classList.remove('on');
+    bulbR.classList.remove('lit'); phR.classList.remove('run');
+  }
+}
+
+async function goStep(n){
+  cont.classList.remove('show'); cont.textContent='Action ▸';
+  if(n===1){
+    paneL.classList.add('active');
+    setSpeaker('staff','场务');
+    await type('这场我搬来两个开关——左边是你熟悉的墙上开关，右边是电脑里的晶体管。');
+  } else if(n===2){
+    lightLeft(true);
+    await wait(650);
+    setSpeaker('sw','开关');
+    await type('我只会通和断两件事。手一按，电路通了，灯就亮。');
+  } else if(n===3){
+    lightLeft(false);
+    paneR.classList.add('active');
+    setSpeaker('staff','场务');
+    await type('右边这个叫晶体管，也是开关家族的。看它三个脚：G 是栅极，控制端；D 和 S 是电流的两头。');
+  } else if(n===4){
+    lightRight(true);
+    await wait(700);
+    setSpeaker('tr','晶体管');
+    await type('栅极 G 电压一变，D 到 S 的通道就通或断。按我的不是手，是电压。');
+  } else if(n===5){
+    setSpeaker('staff','场务');
+    await type('电压一变，通道通断——这就是电脑里 0 和 1 的物理源头。');
+    cont.textContent='Action · 下一场 ▸';
+  }
+  if(n<5){ cont.classList.add('show'); }
+}
+
+function advance(){
+  if(typing){ typing=false; dlg.innerHTML=curText+'<span class="cursor"></span>'; if(pending){pending(); pending=null;} return; }
+  if(step<5){ step++; goStep(step); }
+  else { window.location.href='03-用开关搭逻辑门-交互版.html'; }
+}
+
+function reset(){
+  step=0; typing=false; pending=null; curText='';
+  lightLeft(false); lightRight(false);
+  paneL.classList.remove('active'); paneR.classList.remove('active');
+  setSpeaker('staff','场务');
+  dlg.innerHTML='<span class="cursor"></span>';
+  cont.textContent='喊 Action 开拍 ▸'; cont.classList.add('show');
+}
+
+document.addEventListener('click',advance);
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight'){e.preventDefault(); advance();}
+  else if(e.code==='Backspace'||e.code==='ArrowLeft'){e.preventDefault(); reset();}
+});
+reset();
+</script>
+</body>
+</html>
