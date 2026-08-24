@@ -7,7 +7,7 @@
 
 ## 这是什么
 
-一个"边学边造"的 terminal 工具箱。它既是**活文档**（每张卡记录一个工具的用途 / 用法 / 示例 / 通俗别名 / 踩坑 / 平台对照），也是**可运行的脚本集合**（`pycheat` / `hi` / `gup` / `cheat`）。
+一个"边学边造"的 terminal 工具箱。它既是**活文档**（每张卡记录一个工具的用途 / 用法 / 示例 / 通俗别名 / 踩坑 / 平台对照），也是**可运行的脚本集合**（`pycheat` / `hi` / `gup`）。
 
 配套课程文档（也在此仓库，便于追溯背景）：
 - [`个人终端工具箱.md`](个人终端工具箱.md) — 本工具箱的说明书与成长路线图（工具卡 #1–#4 在此）
@@ -20,7 +20,7 @@
 
 | # | 工具 | 形态 | 一句话 |
 |---|------|------|--------|
-| 1 | `cheat` | zsh 函数（`cheat.zsh`） | 速查卡浏览器：意图搜索 + 交互翻页 + 复制 + 未命中提示 |
+| 1 | `cheat`（✗ 已废弃） | zsh 函数 | **已由 `pycheat` 取代**（`c` 别名现指向 pycheat；敲错提示钩子改调 `pycheat --suggest`） |
 | 2 | `hi` | shell 脚本（`hi.sh`，软链 `~/bin/hi`） | 你是谁 / 在哪台机器 / 什么系统芯片，一眼看清 |
 | 3 | `gup` | shell 脚本（`gup.sh`，软链 `~/bin/gup`） | 一键 git 同步（pull ff-only → 提交 → push），安全红线不 rm/不 force |
 | 4 | `pycheat` | Python CLI（`pycheat.py`，软链 `~/bin/pycheat`） | 离线命令速查：开场屏（置顶+最近）+ 人话搜索 + 彩色卡面 + 浏览不退出 |
@@ -44,7 +44,6 @@ terminal-list/
 │   ├── pycheat.py        # 工具#4：离线命令速查 CLI（仅标准库，零依赖）
 │   ├── hi.sh             # 工具#2：系统/身份速览
 │   ├── gup.sh            # 工具#3：安全一键 git 同步
-│   ├── cheat.zsh         # 工具#1：cheat 函数的 zsh 实现（含交互浏览）
 │   ├── seed_aliases.py   # 给 cheatsheet 批量补「别名:」字段的辅助脚本
 │   └── cheatsheet.md     # 数据源（40 张卡）；pycheat/cheat 都读它
 └── 可视化放映/                      # 课程配套幻灯片（HTML）
@@ -68,7 +67,7 @@ ln -s "$PWD/terminal-toolbox/hi.sh"        ~/bin/hi
 ln -s "$PWD/terminal-toolbox/gup.sh"       ~/bin/gup
 ln -s "$PWD/terminal-toolbox/pycheat.py"   ~/bin/pycheat
 
-# 3) 载入 cheat 函数（每次开终端自动可用）
+# 3) 载入桥接层（定义 c 别名 + 敲错提示钩子；每次开终端自动可用）
 echo 'source "$PWD/terminal-toolbox/cheat.zsh"' >> ~/.zshrc
 source ~/.zshrc
 
@@ -94,9 +93,9 @@ pycheat 看哪个程序最占内存     # 直接意图搜索 → 进入彩色卡
 pycheat -c 看哪个文件夹最大    # 把最佳匹配的「示例」复制到剪贴板，⌘V 直接跑
 pycheat -l                    # 列出全部 40 张卡（编号 + 一句话用途）
 
-# cheat（zsh 函数版，交互更顺手）
-cheat                         # 进入交互浏览：n 下一张 / p 上一张 / b 回退 / f 前进 / c 复制 / q 退出
-cheat df                      # 直接搜某条
+# c（= pycheat 的短名，已接好别名与敲错提示钩子）
+c                             # 进开场屏：置顶常用 + 最近查看，输入"想做的事"回车即搜
+c df                          # 直接搜某条
 
 # hi：我是谁 / 在哪 / 什么芯片
 hi
@@ -126,7 +125,7 @@ gup                           # 在当前 git 仓库里：ff-only pull → 时�
 - 来源卷: 终端工具箱·磁盘
 ```
 
-- 想加自己的命令？直接往 `cheatsheet.md` 追加 `## 新命令` + 字段即可，`pycheat` / `cheat` 立刻能搜到。
+- 想加自己的命令？直接往 `cheatsheet.md` 追加 `## 新命令` + 字段即可，`pycheat` / `c` 立刻能搜到。
 - `别名:` 字段是"人话命中"的关键（中文二元组重叠 + 拼音 + 英文都能匹配）；`seed_aliases.py` 可批量给已有卡片补别名。
 - `常用: 是` 标记的卡会出现在 pycheat 开场屏的"★ 你可能关心的指令"。
 

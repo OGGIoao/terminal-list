@@ -490,12 +490,26 @@ def main():
     ap.add_argument("-c", "--copy", action="store_true", help="复制最佳匹配的示例到剪贴板")
     ap.add_argument("-l", "--list", action="store_true", help="列出全部命令（带编号+用途）")
     ap.add_argument("--llm", action="store_true", help="（预留）LLM 语义增强，未配置则退回本地")
+    ap.add_argument("--suggest", action="store_true",
+                    help="非交互：输出相关命令建议行（每行一个），供 zsh command_not_found_handler 调用")
     args = ap.parse_args()
 
     cards = load_cards(resolve_sheet())
 
     if args.list:
         list_all(cards)
+        return
+
+    if args.suggest:
+        # 非交互建议模式：给 zsh 钩子用。输出 Top-3 相关命令名（每行一个），无则静默空输出。
+        # 单字符查询噪声太大，直接忽略（zsh 钩子也已过滤 <2，这里双保险）。
+        q = " ".join(args.query).strip()
+        if len(q) >= 2:
+            names = [c["name"] for c in rank(cards, q)[:3]]
+            if not names:
+                names = suggest(cards, q)
+            for n in names:
+                print(n)
         return
 
     if not args.query:
