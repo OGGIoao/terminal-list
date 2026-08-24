@@ -251,16 +251,59 @@ def render(card):
     print(BORD + "└" + "─" * W + R)
 
 
+def _clipboard_command():
+    """探测当前系统可用的剪贴板写入命令，返回 (args列表, 粘贴提示) 或 None。
+    优先级：macOS pbcopy → Windows PowerShell → WSL clip.exe →
+    Wayland wl-copy → X11 xclip/xsel → termux。"""
+    import shutil
+    import os
+
+    # macOS
+    if sys.platform == "darwin" and shutil.which("pbcopy"):
+        return (["pbcopy"], "⌘V")
+
+    # 原生 Windows（在 Windows 上跑 Python）
+    if sys.platform == "win32":
+        return (["powershell", "-NoProfile", "-Command",
+                 "$input | Set-Clipboard"], "Ctrl+V")
+
+    # WSL：直接用 Windows 的 clip.exe（路径固定，不依赖 PATH 解析 .exe）
+    wsl_clip = "/mnt/c/Windows/System32/clip.exe"
+    if os.path.exists(wsl_clip):
+        return ([wsl_clip], "Ctrl+V（粘贴到 Windows 侧）")
+    if shutil.which("clip.exe"):
+        return (["clip.exe"], "Ctrl+V")
+
+    # Linux（Wayland 优先，再 X11）
+    if shutil.which("wl-copy"):
+        return (["wl-copy"], "Ctrl+V")
+    if shutil.which("xclip"):
+        return (["xclip", "-selection", "clipboard"], "Ctrl+V")
+    if shutil.which("xsel"):
+        return (["xsel", "--clipboard", "--input"], "Ctrl+V")
+
+    # Android / Termux
+    if shutil.which("termux-clipboard-set"):
+        return (["termux-clipboard-set"], "长按粘贴")
+
+    return None
+
+
 def copy_example(card):
     ex = card.get("示例", "")
     if not ex:
         print("（该卡无「示例」可复制）")
         return
-    try:
-        subprocess.run(["pbcopy"], input=ex, text=True, check=True)
-        print("✅ 示例已复制，直接 ⌘V 运行：\n   " + ex)
-    except Exception:
-        print("（剪贴板不可用，请手动复制）示例: " + ex)
+    cb = _clipboard_command()
+    if cb:
+        args, paste_hint = cb
+        try:
+            subprocess.run(args, input=ex, text=True, check=True)
+            print("✅ 示例已复制，直接 %s 运行：\n   %s" % (paste_hint, ex))
+            return
+        except Exception:
+            pass  # 落到下面的手写降级
+    print("（剪贴板不可用，请手动复制）示例: " + ex)
 
 
 def list_all(cards):
