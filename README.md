@@ -23,7 +23,7 @@
 | 1 | `cheat`（✗ 已废弃） | zsh 函数 | **已由 `pycheat` 取代**（`c` 别名现指向 pycheat；敲错提示钩子改调 `pycheat --suggest`） |
 | 2 | `hi` | shell 脚本（`hi.sh`，软链 `~/bin/hi`） | 你是谁 / 在哪台机器 / 什么系统芯片，一眼看清 |
 | 3 | `gup` | shell 脚本（`gup.sh`，软链 `~/bin/gup`） | 一键 git 同步（pull ff-only → 提交 → push），安全红线不 rm/不 force |
-| 4 | `pycheat` | Python CLI（`pycheat.py`，软链 `~/bin/pycheat`） | 离线命令速查：开场屏（置顶+最近+↻该复习的）+ 人话搜索 + 自学习别名 + 彩色卡面 + 浏览不退出 |
+| 4 | `pycheat` | Python CLI（`pycheat.py`，软链 `~/bin/pycheat`） | 离线命令速查：开场屏（置顶+最近+↻该复习的）+ 人话搜索 + 自学习别名 + **本地 ollama 语义检索**(同义也能命中) + 彩色卡面 + 浏览不退出 |
 
 更完整的字段说明、截图式卡面示例，见 [`个人终端工具箱.md`](个人终端工具箱.md)。
 
@@ -41,11 +41,11 @@ terminal-list/
 ├── LICENSE
 ├── .gitignore
 ├── terminal-toolbox/                # ← 真正可运行的工具
-│   ├── pycheat.py        # 工具#4：离线命令速查 CLI（仅标准库，零依赖）
+│   ├── pycheat.py        # 工具#4：命令速查 CLI（仅标准库；可选接本机 ollama 做语义检索，零额外依赖）
 │   ├── hi.sh             # 工具#2：系统/身份速览
 │   ├── gup.sh            # 工具#3：安全一键 git 同步
 │   ├── seed_aliases.py   # 给 cheatsheet 批量补「别名:」字段的辅助脚本
-│   └── cheatsheet.md     # 数据源（40 张卡）；pycheat/cheat 都读它
+│   └── cheatsheet.md     # 数据源（47 张卡，含 7 张 ollama 指令卡）；pycheat 读它
 └── 可视化放映/                      # 课程配套幻灯片（HTML）
 ```
 
@@ -103,9 +103,11 @@ cp terminal-toolbox/cheatsheet.md ~/.config/cheat/cheatsheet.md
 pycheat                       # 开场屏：置顶常用 + 最近查看 + ↻该复习的，输入"想做的事"回车即搜
 pycheat 看哪个程序最占内存     # 直接意图搜索 → 进入彩色卡面浏览（命中后该说法被记住，下次直命中）
 pycheat -c 看哪个文件夹最大    # 把最佳匹配的「示例」复制到剪贴板，⌘V 直接跑
-pycheat -l                    # 列出全部 40 张卡（编号 + 一句话用途）
+pycheat -l                    # 列出全部 47 张卡（编号 + 一句话用途）
 pycheat --learn show          # 查看你「教给它的」人话说法与命中次数
 pycheat --forget 看哪个程序最占内存   # 忘掉某个自学习说法
+pycheat --llm 哪个进程吃 RAM       # 强制本地 ollama 语义检索（同义也能命中；无 ollama 则报错退出）
+pycheat --no-llm 看哪个程序最占内存  # 强制离线匹配（即便 ollama 在跑）
 
 # c（= pycheat 的短名，已接好别名与敲错提示钩子）
 c                             # 进开场屏：置顶常用 + 最近查看，输入"想做的事"回车即搜
@@ -152,10 +154,12 @@ gup                           # 在当前 git 仓库里：ff-only pull → 时�
 ```
 alias 别名  →  zsh 函数  →  .sh 脚本  →  软链到 ~/bin（用户级）
                                        →  oh-my-zsh 插件（团队化）
-                                       →  Python CLI + LLM 语义查询（阶段2，当前 pycheat 是第一步，纯离线）
+                                       →  Python CLI + 本地 ollama 向量语义查询（阶段2·已落地）
 ```
 
-`pycheat` 是当前路线图的"阶段 2"起点：先做到**离线、零依赖、即查即用**，再叠加**自学习别名**（越用越懂你）与**间隔复习**（开场屏提醒巩固）。后续 `--llm` 开关预留了接本地 ollama 做语义增强的位置（未配置模型/密钥时自动退回本地匹配）。
+`pycheat` 是当前路线图的"阶段 2"：**离线、零依赖、即查即用**为基础，叠加**自学习别名**（越用越懂你）、**间隔复习**（开场屏提醒巩固）与**本地 ollama 语义检索**（同义/近义也能命中）。语义检索零额外依赖（仅 `urllib` 调本机 `11434`），自动探测 ollama——在跑就用语义、否则退回离线；`--llm` 强制、`--no-llm` 强制离线。
+
+> 排序策略是**本地匹配为主、语义为温和加成**的融合排序（fusion）：本地命中分占主导，语义相似度只做相对温和加成，**绝不让语义覆盖一个清晰的本地命中**；零本地分的近义卡也能被语义抬出。嵌入模型默认 `nomic-embed-text`，若本机已拉取中文更强的 `bge-m3` 会自动优先（无需改代码）。
 
 ---
 

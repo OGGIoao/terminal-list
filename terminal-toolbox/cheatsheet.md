@@ -5,7 +5,7 @@
 >   作用 / 用法 / 示例 / 踩坑 / Windows对照 / 来源卷
 > 新增命令 = 在文末加一个 `## 命令名` 区块即可，`cheat` 函数会自动识别。
 > 同步机制: 与 OS 课程文档双向引用——本文件是"即查即用"的精简版，文档是"讲透原理"的完整版。
-> 最后更新: 2026-08-22 (初建含 0.0 硬件/第一卷内核/第二卷文件系统/第三卷Shell+自检三连；新增 git 实战 8 张卡：status/log/add·commit/branch·switch/fetch·  pull·push/stash/diff/remote·clone)
+> 最后更新: 2026-08-27（初建含 0.0 硬件/第一卷内核/第二卷文件系统/第三卷Shell+自检三连；git 实战 8 张卡；新增 ollama 指令 7 张卡：serve/pull/run/list/ps/rm/embeddings REST，供 pycheat --llm 语义检索）
 
 ---
 
@@ -352,3 +352,69 @@
 - 踩坑: 别名可能覆盖同名命令，用 `type g` 看是否被占用；oh-my-zsh git 插件已定义 g/gs/gd 等，自己再定义会冲突，建议只补插件没有的；一键同步脚本 `gup` 见《个人终端工具箱》工具 #3
 - Windows对照: PowerShell 用 function 或 doskey
 - 来源卷: 第三卷(alias) / 第六卷(git)
+
+---
+
+## ollama serve
+- 别名: 启动ollama,开ollama服务,ollama后台,起服务
+- 作用: 启动 ollama 本地服务（默认监听 11434 端口），供 pycheat --llm 等本机程序调用
+- 用法: `ollama serve` （后台常驻；macOS 也可用 `brew services start ollama` 开机自启）
+- 示例: `ollama serve &`  → 后台启动；`curl -s http://localhost:11434/api/tags` 验证在跑
+- 踩坑: 端口 11434 被占会起不来；`api/tags` 返回空 `{"models":[]}` 说明服务在跑但还没拉模型
+- Windows对照: 同 `ollama serve`；或设为系统服务
+- 来源卷: 工具箱·ollama
+
+## ollama pull
+- 别名: 下载模型,拉模型,装模型,获取模型
+- 作用: 从模型库拉取模型到本机（首次使用某模型必须这一步）
+- 用法: `ollama pull <模型名>`
+- 示例: `ollama pull nomic-embed-text`  → 向量化模型，pycheat 语义检索依赖它
+- 示例: `ollama pull qwen2.5:0.5b`       → 轻量聊天模型，练手用
+- 踩坑: 模型名带标签，如 `qwen2.5:0.5b`；只写 `qwen2.5` 会拉默认标签 latest；向量模型别乱删，pycheat 靠它
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+
+## ollama run
+- 别名: 跑模型,聊天,和模型对话,开聊
+- 作用: 进入模型对话（没有会自动先 pull）
+- 用法: `ollama run <模型名>`
+- 示例: `ollama run qwen2.5:0.5b`  → 进对话筐，输入 `/bye` 退出
+- 踩坑: 首次 run 会先下载，可能等一会儿；多轮对话占内存，0.5b 很轻，7b 以上注意 RAM
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+
+## ollama list
+- 别名: 看有哪些模型,模型列表,已装模型
+- 作用: 列出本机已拉取的模型
+- 用法: `ollama list`
+- 示例: `ollama list`  → 看 NAME / ID / SIZE / MODIFIED
+- 踩坑: 列表为空不代表服务没起，只是还没 pull 任何模型
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+
+## ollama ps
+- 别名: 看运行中的模型,模型进程,谁在跑
+- 作用: 查看正在运行的模型进程（占多少内存）
+- 用法: `ollama ps`
+- 示例: `ollama ps`  → 看已加载模型的显存/内存占用
+- 踩坑: 模型加载后常驻，不用时 `ollama stop <名>` 释放资源
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+
+## ollama rm
+- 别名: 删模型,卸载模型,移除模型
+- 作用: 删除本机模型，释放磁盘
+- 用法: `ollama rm <模型名>`
+- 示例: `ollama rm qwen2.5:0.5b`
+- 踩坑: 删除后下次 run 会重新下载（再等一次）；`nomic-embed-text` 是 pycheat 语义检索底座，别乱删
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+
+## ollama embeddings (REST)
+- 别名: 向量化接口,embedding调用,语义向量,文本转向量
+- 作用: 用任意程序调 ollama 做文本向量化（pycheat --llm 就是这么干的）
+- 用法: POST http://localhost:11434/api/embeddings   body: {"model":...,"prompt":...}
+- 示例: `curl -s -X POST http://localhost:11434/api/embeddings -H "Content-Type: application/json" -d '{"model":"nomic-embed-text","prompt":"要向量化的文本"}'`
+- 踩坑: 返回 JSON 里的 `embedding` 字段是浮点数组（nomic-embed-text 为 768 维）；需先 `ollama pull nomic-embed-text`
+- Windows对照: 同（URL 不变，仍是本机 11434）
+- 来源卷: 工具箱·ollama

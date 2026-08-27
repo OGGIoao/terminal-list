@@ -7,7 +7,7 @@
   pycheat <说法>         按意图搜（命令名 / 别名 / 拼音 / 内容）→ 进入浏览，可继续翻
   pycheat -c <说法>      把最佳匹配的「示例」复制到剪贴板（⌘V 直接跑）
   pycheat -l             列出全部命令（带编号 + 一句话用途）
-  pycheat --llm <说法>   （预留）LLM 语义增强；未配置模型/密钥时自动退回本地匹配
+  pycheat --llm <说法>   本地 ollama 语义检索（同义/近义也能命中；无 ollama 时自动退回本地）
 
 交互浏览（真实终端里）底部菜单:
   n/→/j  下一张      p/←/k  上一张      b 回退      f 前进
@@ -21,11 +21,12 @@
   - 进入浏览后不退出：翻页 / 回退 / 前进 / 复制 / 重新搜索都在一个会话里完成。
 
 数据源: ~/.config/cheat/cheatsheet.md（仓库自带 cheatsheet.md 作兜底，clone 即可跑）
-成长路线: 这是路线图「阶段2 转 Python CLI 接 LLM 语义查询」的第一步（当前纯离线）。
+成长路线: 路线图「阶段2 转 Python CLI 接 LLM 语义查询」已落地——本地 ollama(nomic-embed-text) 做向量语义匹配，零额外依赖；无 ollama 时退回离线二元组匹配。
 """
 import argparse
 import difflib
 import json
+import math
 import os
 import re
 import shutil
@@ -146,6 +147,168 @@ def suggest(cards, q):
                     out.append(card["name"])
                 break
     return out[:3]
+
+
+# --- 本地 ollama 语义检索（零额外依赖，仅 urllib 调本机 11434）---
+OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
+OLLAMA_EMBED_URL = "http://localhost:11434/api/embeddings"
+EMBED_MODEL_DEFAULT = "nomic-embed-text"      # 默认英文向嵌入；中文弱但零额外拉取
+EMBED_MODEL_PREFERS = ("bge-m3", "bge-m3:latest")  # 若本机已拉取则优先（中文更强）
+SEMANTIC_W = 15.0            # 语义相对加成上限：本地分始终占主导，避免语义覆盖清晰命中
+VEC_PATH = os.path.expanduser("~/.config/cheat/.pycheat_vectors.json")
+
+
+def ollama_available():
+    """本机 ollama serve 是否在跑（短超时，不阻塞离线使用）。"""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(urllib.request.Request(OLLAMA_TAGS_URL), timeout=1.5) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def resolve_embed_model():
+    """自动优先中文更强的 bge-m3（若本机已拉取），否则回退默认模型。"""
+    if ollama_available():
+        try:
+            import urllib.request
+            with urllib.request.urlopen(urllib.request.Request(OLLAMA_TAGS_URL), timeout=1.5) as r:
+                data = json.loads(r.read())
+            names = [m.get("name", "") for m in data.get("models", [])]
+            for pref in EMBED_MODEL_PREFERS:
+                if pref in names:
+                    return "bge-m3"
+        except Exception:
+            pass
+    return EMBED_MODEL_DEFAULT
+
+
+def _embed(text, is_query=False, model=None):
+    """调 ollama embeddings；nomic 系列用 search_query/search_document 前缀对齐效果最佳。"""
+    import urllib.request
+    if model is None:
+        model = resolve_embed_model()
+    prefix = "search_query: " if is_query else "search_document: "
+    payload = json.dumps({"model": model, "prompt": prefix + text}).encode("utf-8")
+    req = urllib.request.Request(OLLAMA_EMBED_URL, data=payload,
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())["embedding"]
+
+
+def _cosine(a, b):
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _card_text(card):
+    parts = [card["name"]] + aliases_of(card)
+    for f in ("作用", "用法", "示例", "踩坑"):
+        if f in card:
+            parts.append(card[f])
+    return " ".join(parts)
+
+
+def _hash(s):
+    import hashlib
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+
+def load_vectors():
+    try:
+        with open(VEC_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_vectors(d):
+    try:
+        os.makedirs(os.path.dirname(VEC_PATH), exist_ok=True)
+        with open(VEC_PATH, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def _embed_cards(cards):
+    """每张卡向量化并缓存（按内容 hash 增量更新）；返回 {name: [vec]}。"""
+    cache = load_vectors()
+    out = {}
+    for c in cards:
+        nm = c["name"]
+        text = _card_text(c)
+        h = _hash(text)
+        rec = cache.get(nm)
+        if rec and rec.get("hash") == h and rec.get("vec"):
+            out[nm] = rec["vec"]
+        else:
+            vec = _embed(text, is_query=False)
+            cache[nm] = {"hash": h, "vec": vec}
+            out[nm] = vec
+    save_vectors(cache)
+    return out
+
+
+_llm_warned = False
+
+
+def fused_rank(cards, q, require_llm=False):
+    """融合排序：本地匹配分数为基座，ollama 语义做「相对温和加成」，绝不覆盖清晰本地命中。
+
+    - 本地分来自 score_card()（命名词/别名/内容，含自学习加成），清晰命中区间约 30~190。
+    - 语义相似度先相对本次查询的最佳匹配线性归一到 [0,1]，再乘 SEMANTIC_W(=15)，
+      因此不依赖具体嵌入模型的绝对分布；强本地命中(30+)始终压过纯语义加成(<=15)。
+    - 零本地分的卡若语义相对最佳，也能被抬出（让「同义/近义」说法浮上来）。
+    - require_llm=True（--llm 强制语义）：ollama 不可用或向量化失败直接抛异常。
+    """
+    if not ollama_available():
+        if require_llm:
+            raise RuntimeError("ollama serve 未运行，无法做语义检索")
+        return rank(cards, q)
+    try:
+        qvec = _embed(q, is_query=True)
+        vecs = _embed_cards(cards)
+    except Exception as e:
+        if require_llm:
+            raise
+        if not _llm_warned:
+            print("（⚠️ ollama 语义检索不可用：%s — 已退回本地匹配）" % e)
+            _llm_warned = True
+        return rank(cards, q)
+    # 收集本次相似度，找出 lo/hi 做相对归一（与具体嵌入模型分布无关）
+    sims = {}
+    for c in cards:
+        v = vecs.get(c["name"])
+        sims[c["name"]] = _cosine(qvec, v) if v else -1.0
+    vals = [s for s in sims.values() if s >= 0]
+    lo, hi = (min(vals), max(vals)) if vals else (0.0, 0.0)
+    span = (hi - lo) or 1.0
+    merged = {c["name"]: [c, score_card(c, q)] for c in cards}
+    for c in cards:
+        s = sims.get(c["name"], -1.0)
+        if s >= 0:
+            merged[c["name"]][1] += SEMANTIC_W * (s - lo) / span
+    ordered = sorted(((v[1], v[0]) for v in merged.values()), key=lambda x: -x[0])
+    return [card for fin_score, card in ordered if fin_score > 0]
+
+
+def semantic_rank(cards, q):
+    """纯语义排序（保留为调试入口）；主路径请用 fused_rank。"""
+    return fused_rank(cards, q, require_llm=True)
+
+
+def search_rank(cards, q, use_llm=None):
+    """统一搜索入口：use_llm=None 自动探测 ollama；use_llm=False 强制离线（--no-llm）；
+    语义失败/未配置则退回本地 rank()。"""
+    if use_llm is False:
+        return rank(cards, q)
+    return fused_rank(cards, q, require_llm=False)
 
 
 # --- 最近浏览历史（本地文件，零依赖；用于开场屏「最近查看」）---
@@ -546,7 +709,7 @@ def browse(order, start):
             except (EOFError, KeyboardInterrupt):
                 break
             if q2:
-                r2 = rank(order, q2)
+                r2 = search_rank(order, q2)
                 if r2:
                     hist.append(idx)
                     future.clear()
@@ -564,6 +727,7 @@ def show_opening(cards):
     pinned_names = [c["name"] for c in pinned][:6]
     recent = recent_views(cards, exclude=set(pinned_names))
     due = due_for_review(cards)
+    llm_on = ollama_available()
 
     def screen():
         print(BORD + "╭─ " + R + BOLD + "pycheat · 离线命令速查" + R +
@@ -587,6 +751,8 @@ def show_opening(cards):
             print(BORD + "│" + R)
             print(BORD + "│ " + R + BOLD + "↻ 该复习的：" + R + DIM +
                   " · ".join(due) + R)
+        if llm_on:
+            print(BORD + "│ " + R + DIM + "🧠 语义检索已启用（ollama · " + resolve_embed_model() + "）" + R)
         print(BORD + "│" + R)
         print(BORD + "└" + "─" * 46 + R)
         print(DIM + "操作：输入想做的事 " + R + BOLD + "↵" + R + DIM +
@@ -623,7 +789,7 @@ def show_opening(cards):
                 continue
             print(DIM + "  ⚠️ 超出范围（1~%d）" % len(pinned_names) + R)
             continue
-        r = rank(cards, line)
+        r = search_rank(cards, line)
         if not r:
             sug = suggest(cards, line)
             print(DIM + "  ⚠️ 没找到「%s」" % line + R)
@@ -643,7 +809,9 @@ def main():
     ap.add_argument("query", nargs="*", help="想做的事 / 命令名 / 拼音")
     ap.add_argument("-c", "--copy", action="store_true", help="复制最佳匹配的示例到剪贴板")
     ap.add_argument("-l", "--list", action="store_true", help="列出全部命令（带编号+用途）")
-    ap.add_argument("--llm", action="store_true", help="（预留）LLM 语义增强；接 ollama 后启用本地语义匹配")
+    ap.add_argument("--llm", action="store_true", help="强制本地 ollama 语义检索（不可用则报错退出）")
+    ap.add_argument("--no-llm", dest="no_llm", action="store_true",
+                    help="强制关闭语义检索，只用离线匹配（即便 ollama 在跑）")
     ap.add_argument("--learn", metavar="ACTION", nargs="?", const="show",
                     choices=["show", "clear"], help="查看/清空自学习别名库")
     ap.add_argument("--forget", metavar="说法", help="忘掉某个自学习说法")
@@ -701,9 +869,16 @@ def main():
     q = " ".join(args.query).strip()
 
     if args.llm:
-        print("（LLM 模式预留：当前未配置模型/密钥，已退回本地匹配）")
-
-    ranked = rank(cards, q)
+        # 显式 --llm：不可用就直接报错，不静默退回
+        try:
+            ranked = semantic_rank(cards, q)
+        except Exception as e:
+            print("pycheat: ⚠️ --llm 语义检索失败：%s" % e)
+            print("        确认 ollama 已启动且已拉取嵌入模型：`ollama pull %s`" % resolve_embed_model())
+            return
+    else:
+        # 自动：ollama 在跑就用语义，否则离线
+        ranked = search_rank(cards, q, None if not args.no_llm else False)
     if not ranked:
         print("pycheat: 没找到和「%s」相关的命令卡。" % q)
         sug = suggest(cards, q)
