@@ -25,11 +25,13 @@
 """
 import argparse
 import difflib
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 
 CHEAT_SHEET = os.path.expanduser("~/.config/cheat/cheatsheet.md")
 FIELDS = ["作用", "用法", "示例", "踩坑", "Windows对照", "来源卷", "别名"]
@@ -111,6 +113,7 @@ def score_card(card, q):
     if q in blob:
         s += 18
     s += 10 * overlap(q, blob)
+    s += learned_boost(card, q, LEARNED)
     return s
 
 
@@ -159,6 +162,7 @@ def record_view(name):
         if len(lines) > 60:
             with open(HIST, "w") as f:
                 f.write("\n".join(lines[-60:]) + "\n")
+        record_strength(name)
     except OSError:
         pass
 
@@ -179,6 +183,108 @@ def recent_views(cards, exclude=()):
         if len(out) >= 5:
             break
     return out
+
+
+# --- 增量自学习别名库（零依赖；人话说法 → 命中卡，固化后下次直接命中）---
+LEARN_PATH = os.path.expanduser("~/.config/cheat/.pycheat_learned.json")
+
+
+def load_learned():
+    try:
+        with open(LEARN_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_learned(d):
+    try:
+        os.makedirs(os.path.dirname(LEARN_PATH), exist_ok=True)
+        with open(LEARN_PATH, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def record_learn(q, name, cards):
+    """命中某卡后调用：若 q 是新的「人话说法」（非现成命令名/别名），固化 q→name。"""
+    qn = q.lower().strip()
+    if len(qn) < 2:
+        return
+    names = {c["name"].lower() for c in cards}
+    alias_pool = set()
+    for c in cards:
+        alias_pool.update(aliases_of(c))
+    if qn in names or qn in alias_pool:
+        return  # 已是命令名/别名，无需学
+    global LEARNED
+    d = load_learned()
+    rec = d.setdefault(qn, {}).setdefault(name, {"count": 0, "last": 0})
+    rec["count"] += 1
+    rec["last"] = int(time.time())
+    save_learned(d)
+    LEARNED = d
+
+
+def learned_boost(card, q, learned):
+    """学习库把 q 映射到本卡名 → 给高分（接近确切别名 90）。"""
+    qn = q.lower().strip()
+    if not qn:
+        return 0
+    return 88 if learned.get(qn, {}).get(card["name"]) else 0
+
+
+# --- 记忆强度（间隔复习）：记录每张卡查看次数与上次时间 ---
+STRENGTH_PATH = os.path.expanduser("~/.config/cheat/.pycheat_strength.json")
+
+
+def load_strength():
+    try:
+        with open(STRENGTH_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_strength(d):
+    try:
+        os.makedirs(os.path.dirname(STRENGTH_PATH), exist_ok=True)
+        with open(STRENGTH_PATH, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def record_strength(name):
+    d = load_strength()
+    rec = d.setdefault(name, {"count": 0, "last": 0})
+    rec["count"] += 1
+    rec["last"] = int(time.time())
+    save_strength(d)
+
+
+def due_for_review(cards):
+    """返回该复习的卡名（≤5）：曾看过 且 (看得少 或 很久没看)。分数高=更该复习。"""
+    d = load_strength()
+    now = int(time.time())
+    day = 86400
+    due = []
+    for c in cards:
+        nm = c["name"]
+        rec = d.get(nm, {"count": 0, "last": 0})
+        cnt = rec.get("count", 0)
+        last = rec.get("last", 0)
+        if cnt < 1:
+            continue  # 从没看过的不算「复习」，留给「新学」
+        age = (now - last) / day if last else 999
+        if cnt < 3 or age > 7:
+            score = age + (3 - cnt) * 4
+            due.append((score, nm))
+    due.sort(reverse=True)
+    return [nm for _, nm in due][:5]
+
+
+LEARNED = load_learned()
 
 
 # --- 颜色：仅交互终端启用，管道/重定向(NO_COLOR 或 非 tty)自动关闭 ---
@@ -457,6 +563,7 @@ def show_opening(cards):
     pinned = [c for c in cards if c.get("常用") and c["常用"] not in ("否", "no", "false")]
     pinned_names = [c["name"] for c in pinned][:6]
     recent = recent_views(cards, exclude=set(pinned_names))
+    due = due_for_review(cards)
 
     def screen():
         print(BORD + "╭─ " + R + BOLD + "pycheat · 离线命令速查" + R +
@@ -476,6 +583,10 @@ def show_opening(cards):
             print(BORD + "│" + R)
             print(BORD + "│ " + R + YELLOW + "↺ 最近查看：" + R +
                   DIM + " · ".join(recent) + R)
+        if due:
+            print(BORD + "│" + R)
+            print(BORD + "│ " + R + BOLD + "↻ 该复习的：" + R + DIM +
+                  " · ".join(due) + R)
         print(BORD + "│" + R)
         print(BORD + "└" + "─" * 46 + R)
         print(DIM + "操作：输入想做的事 " + R + BOLD + "↵" + R + DIM +
@@ -532,12 +643,36 @@ def main():
     ap.add_argument("query", nargs="*", help="想做的事 / 命令名 / 拼音")
     ap.add_argument("-c", "--copy", action="store_true", help="复制最佳匹配的示例到剪贴板")
     ap.add_argument("-l", "--list", action="store_true", help="列出全部命令（带编号+用途）")
-    ap.add_argument("--llm", action="store_true", help="（预留）LLM 语义增强，未配置则退回本地")
+    ap.add_argument("--llm", action="store_true", help="（预留）LLM 语义增强；接 ollama 后启用本地语义匹配")
+    ap.add_argument("--learn", metavar="ACTION", nargs="?", const="show",
+                    choices=["show", "clear"], help="查看/清空自学习别名库")
+    ap.add_argument("--forget", metavar="说法", help="忘掉某个自学习说法")
     ap.add_argument("--suggest", action="store_true",
                     help="非交互：输出相关命令建议行（每行一个），供 zsh command_not_found_handler 调用")
     args = ap.parse_args()
 
     cards = load_cards(resolve_sheet())
+
+    if args.learn == "clear":
+        save_learned({})
+        print("🧹 已清空自学习别名库（~/.config/cheat/.pycheat_learned.json）")
+        return
+    if args.learn == "show":
+        d = load_learned()
+        if not d:
+            print("（自学习别名库为空。多用几次人话搜索，它会自动记住你的说法。）")
+        else:
+            print("自学习到的说法（说法 → 命令 · 命中次数）：")
+            for q, m in sorted(d.items()):
+                for nm, rec in m.items():
+                    print("  %-22s → %-18s %d 次" % (q, nm, rec.get("count", 0)))
+        return
+    if args.forget:
+        d = load_learned()
+        d.pop(args.forget.lower().strip(), None)
+        save_learned(d)
+        print("🗑️ 已忘掉说法：「%s」" % args.forget)
+        return
 
     if args.list:
         list_all(cards)
@@ -579,6 +714,7 @@ def main():
         return
 
     best = ranked[0]
+    record_learn(q, best["name"], cards)
     if args.copy:
         copy_example(best)
         return

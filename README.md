@@ -23,7 +23,7 @@
 | 1 | `cheat`（✗ 已废弃） | zsh 函数 | **已由 `pycheat` 取代**（`c` 别名现指向 pycheat；敲错提示钩子改调 `pycheat --suggest`） |
 | 2 | `hi` | shell 脚本（`hi.sh`，软链 `~/bin/hi`） | 你是谁 / 在哪台机器 / 什么系统芯片，一眼看清 |
 | 3 | `gup` | shell 脚本（`gup.sh`，软链 `~/bin/gup`） | 一键 git 同步（pull ff-only → 提交 → push），安全红线不 rm/不 force |
-| 4 | `pycheat` | Python CLI（`pycheat.py`，软链 `~/bin/pycheat`） | 离线命令速查：开场屏（置顶+最近）+ 人话搜索 + 彩色卡面 + 浏览不退出 |
+| 4 | `pycheat` | Python CLI（`pycheat.py`，软链 `~/bin/pycheat`） | 离线命令速查：开场屏（置顶+最近+↻该复习的）+ 人话搜索 + 自学习别名 + 彩色卡面 + 浏览不退出 |
 
 更完整的字段说明、截图式卡面示例，见 [`个人终端工具箱.md`](个人终端工具箱.md)。
 
@@ -67,8 +67,20 @@ ln -s "$PWD/terminal-toolbox/hi.sh"        ~/bin/hi
 ln -s "$PWD/terminal-toolbox/gup.sh"       ~/bin/gup
 ln -s "$PWD/terminal-toolbox/pycheat.py"   ~/bin/pycheat
 
-# 3) 载入桥接层（定义 c 别名 + 敲错提示钩子；每次开终端自动可用）
-echo 'source "$PWD/terminal-toolbox/cheat.zsh"' >> ~/.zshrc
+# 3) 桥接层：c 别名 + 敲错提示钩子（旧版 cheat.zsh 已废弃，这里重建精简版）
+cat > ~/.cheat.zsh <<'EOF'
+# 个人终端工具箱 · 桥接层（c=pycheat + 敲错提示）
+alias c='pycheat'
+command_not_found_handler() {
+  local q="$1"
+  [ "${#q}" -lt 2 ] && return 127
+  local hits
+  hits=$(pycheat --suggest "$q" 2>/dev/null)
+  [ -n "$hits" ] && echo "💡 你是不是想用这些命令？"$'\n'"$hits"
+  return 127
+}
+EOF
+echo '[ -s "$HOME/.cheat.zsh" ] && \. "$HOME/.cheat.zsh"' >> ~/.zshrc
 source ~/.zshrc
 
 # 4) 放好数据源 cheatsheet（推荐；不放也能跑，见下方"兜底"）
@@ -78,7 +90,7 @@ cp terminal-toolbox/cheatsheet.md ~/.config/cheat/cheatsheet.md
 
 **Windows / Linux 说明**
 - `hi.sh` / `gup.sh` 是 POSIX shell 脚本，在 Linux/macOS 通用；Windows 需用 WSL 或 Git Bash。
-- `pycheat.py` 是纯 Python 标准库，**跨平台可跑**。剪贴板复制目前走 macOS 的 `pbcopy`，其它平台会自动降级为"请手动复制"。
+- `pycheat.py` 是纯 Python 标准库，**跨平台可跑**。剪贴板复制自动探测：macOS `pbcopy` / Windows PowerShell / WSL `clip.exe` / Linux `wl-copy`·`xclip`·`xsel` / Termux，均无则降级为手写复制。
 
 **cheatsheet 兜底**：`pycheat` 优先读 `~/.config/cheat/cheatsheet.md`；若该路径不存在，会自动改用**脚本同目录的 `cheatsheet.md`**。所以即便跳过第 4 步，clone 下来直接 `python3 terminal-toolbox/pycheat.py` 也能用。
 
@@ -88,10 +100,12 @@ cp terminal-toolbox/cheatsheet.md ~/.config/cheat/cheatsheet.md
 
 ```bash
 # pycheat：说人话就能搜
-pycheat                       # 开场屏：置顶常用 + 最近查看，输入"想做的事"回车即搜
-pycheat 看哪个程序最占内存     # 直接意图搜索 → 进入彩色卡面浏览
+pycheat                       # 开场屏：置顶常用 + 最近查看 + ↻该复习的，输入"想做的事"回车即搜
+pycheat 看哪个程序最占内存     # 直接意图搜索 → 进入彩色卡面浏览（命中后该说法被记住，下次直命中）
 pycheat -c 看哪个文件夹最大    # 把最佳匹配的「示例」复制到剪贴板，⌘V 直接跑
 pycheat -l                    # 列出全部 40 张卡（编号 + 一句话用途）
+pycheat --learn show          # 查看你「教给它的」人话说法与命中次数
+pycheat --forget 看哪个程序最占内存   # 忘掉某个自学习说法
 
 # c（= pycheat 的短名，已接好别名与敲错提示钩子）
 c                             # 进开场屏：置顶常用 + 最近查看，输入"想做的事"回车即搜
@@ -141,7 +155,7 @@ alias 别名  →  zsh 函数  →  .sh 脚本  →  软链到 ~/bin（用户级
                                        →  Python CLI + LLM 语义查询（阶段2，当前 pycheat 是第一步，纯离线）
 ```
 
-`pycheat` 是当前路线图的"阶段 2"起点：先做到**离线、零依赖、即查即用**，后续 `--llm` 开关预留了接大模型做语义增强的位置（未配置模型/密钥时自动退回本地匹配）。
+`pycheat` 是当前路线图的"阶段 2"起点：先做到**离线、零依赖、即查即用**，再叠加**自学习别名**（越用越懂你）与**间隔复习**（开场屏提醒巩固）。后续 `--llm` 开关预留了接本地 ollama 做语义增强的位置（未配置模型/密钥时自动退回本地匹配）。
 
 ---
 
