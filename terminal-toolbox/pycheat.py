@@ -237,7 +237,12 @@ def save_vectors(d):
 
 
 def _embed_cards(cards):
-    """每张卡向量化并缓存（按内容 hash 增量更新）；返回 {name: [vec]}。"""
+    """每张卡向量化并缓存（按内容 hash + 模型名 增量更新）；返回 {name: [vec]}。
+
+    缓存记录带 model 字段：切换嵌入模型（如 nomic -> bge-m3）后旧向量自动失效重建，
+    避免用错模型的向量做语义排序。
+    """
+    model = resolve_embed_model()
     cache = load_vectors()
     out = {}
     for c in cards:
@@ -245,11 +250,11 @@ def _embed_cards(cards):
         text = _card_text(c)
         h = _hash(text)
         rec = cache.get(nm)
-        if rec and rec.get("hash") == h and rec.get("vec"):
+        if rec and rec.get("hash") == h and rec.get("model") == model and rec.get("vec"):
             out[nm] = rec["vec"]
         else:
-            vec = _embed(text, is_query=False)
-            cache[nm] = {"hash": h, "vec": vec}
+            vec = _embed(text, is_query=False, model=model)
+            cache[nm] = {"hash": h, "model": model, "vec": vec}
             out[nm] = vec
     save_vectors(cache)
     return out
