@@ -233,3 +233,29 @@ pycheat --forget 看内存    # 忘掉某条说法
 ---
 
 *本说明与 `个人终端工具箱.md`（设计/路线图）互补：那份讲「为什么这么造」，这份讲「怎么用」。*
+
+---
+
+## 附录 A：ollama 速查小抄（8 张卡一页看全）
+
+> 记住一句话：**serve 起服务 → pull 拉模型 → run/list/ps 用模型 → rm 清理 → embeddings 给程序调 → show 看元信息**。
+> pycheat 的语义检索只依赖 `embeddings` 接口 + 一个嵌入模型（`nomic-embed-text` 默认，`bge-m3` 自动优先）。
+
+| 命令 | 一句话定位 | 最常用示例 | 关键点 |
+|---|---|---|---|
+| **ollama serve** | 启动本地推理服务（11434） | `ollama serve &` | pycheat 语义检索的前提；后台常驻 |
+| **ollama pull** | 下载模型到本机 | `ollama pull bge-m3` / `ollama pull qwen2.5:0.5b` | 拉到 `bge-m3` 后 pycheat 自动优先；断线可重试续传 |
+| **ollama run** | 进入对话（没模型会先拉） | `ollama run qwen2.5:0.5b`（`/bye` 退出） | 嵌入模型(bge-m3)不能对话，聊天用 qwen/llama |
+| **ollama list** | 看已装模型 | `ollama list` | 出现 `bge-m3:latest` = 已自动优先 |
+| **ollama ps** | 看正在跑的模型 | `ollama ps` | 占内存时查谁在吃资源 |
+| **ollama rm** | 删模型 | `ollama rm <模型名>` | 别误删嵌入底座，pycheat 靠它 |
+| **ollama embeddings (REST)** | 程序调用向量化 | `curl .../api/embeddings -d '{"model":"bge-m3","prompt":"文本"}'` | pycheat `--llm` 就是这么干的 |
+| **ollama show** | 看模型元信息 | `ollama show bge-m3` | 查参数/license/Modelfile，定位「拉对没有」 |
+
+**记忆口诀**：起（serve）→ 拉（pull）→ 用（run/list/ps）→ 删（rm）；嵌入另算（embeddings/show）。
+
+**和 pycheat 的关系**：`c` 能直接搜上面任意一张——比如 `c 看模型详情` → `ollama show`、`c 拉模型` → `ollama pull`。
+
+---
+
+*本说明与 `个人终端工具箱.md`（设计/路线图）互补：那份讲「为什么这么造」，这份讲「怎么用」。*
