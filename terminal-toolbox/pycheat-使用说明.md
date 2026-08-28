@@ -25,7 +25,7 @@
 | 主程序 | `~/terminal-toolbox/pycheat.py` | 全部逻辑，已设可执行位 |
 | 全局命令 | `~/bin/pycheat`（软链 → 上面） | 任意目录敲 `pycheat` 都行 |
 | 短名别名 | `~/.cheat.zsh` → `~/.zshrc` 第 8 行 `source` | `alias c='pycheat'` |
-| 数据源 | `~/.config/cheat/cheatsheet.md` | 47 张命令卡，所见即所得 |
+| 数据源 | `~/.config/cheat/cheatsheet.md` | 48 张命令卡（含 8 张 ollama），所见即所得 |
 | 学习库 | `~/.config/cheat/.pycheat_learned.json` | 自学习说法库 |
 | 复习库 | `~/.config/cheat/.pycheat_strength.json` | 每张卡的查看/遗忘曲线 |
 | 向量缓存 | `~/.config/cheat/.pycheat_vectors.json` | ollama 卡片向量，按内容 hash 缓存 |
@@ -154,7 +154,9 @@ pycheat --forget 看内存    # 忘掉某条说法
 
 ## 7. 自己加命令卡（最该掌握的进阶）
 
-数据源是纯 markdown，**加一张卡 = 文末加一个 `## 命令名` 区块**，重启 `c` 即生效，无需改代码：
+数据源是纯 markdown，**加一张卡 = 文末加一个 `## 命令名` 区块**，存盘后下次 `c` 自动加载，无需改代码。
+
+字段模板（七行，少哪行都不影响加载，但建议写全）：
 
 ```markdown
 ## 你的新命令
@@ -167,9 +169,35 @@ pycheat --forget 看内存    # 忘掉某条说法
 - 来源卷: 你从哪学来的
 ```
 
+### 现场演示：我们刚加的 `ollama show` 卡
+
+小o 按上面模板，往 `~/.config/cheat/cheatsheet.md` 文末真加了一张卡（这是一张当前缺、且实用的卡），**你敲 `c show` / `c 看模型详情` 现在就能搜到它**：
+
+```markdown
+## ollama show
+- 别名: 看模型详情,模型参数,模型信息,查模型配置
+- 作用: 查看已拉模型的元信息（参数/上下文窗口/license/模板/系统提示），排查"为啥这个模型表现不对"
+- 用法: `ollama show <模型名>` ；对话中也可用 `/show`
+- 示例: `ollama show bge-m3`              → 看 license / 1024 维向量 / 适用任务
+- 示例: `ollama show qwen2.5:0.5b`        → 看参数规模、上下文长度(num_ctx)、模板
+- 示例: `ollama show nomic-embed-text`    → 确认它是嵌入模型(dim 768)、不可用于聊天
+- 踩坑: `show` 看的是模型卡(moderfile)信息，不含权重本身；想看实际跑起来的占用用 `ollama ps`
+- 踩坑: 模型名带标签时要写全，如 `qwen2.5:0.5b`，否则按 latest 解析
+- Windows对照: 同
+- 来源卷: 工具箱·ollama
+- 备注: 本卡为「自己加卡」功能的现场演示示例
+```
+
+**一步步就是这么加的：**
+1. 打开数据源：`open ~/.config/cheat/cheatsheet.md`（或任意编辑器）
+2. 滚到文件最末尾，粘贴上面整段（含 `## ollama show` 标题）
+3. ⌘S 存盘 —— **不用重启任何东西**
+4. 终端敲 `c 看模型详情` 验证，它会把 `ollama show` 顶上来
+
 要点：
-- **别名行是命中关键**——多写人话/拼音，搜得到全靠它
+- **别名行是命中关键**——多写人话/拼音，搜得到全靠它（这张特意写了「看模型详情/模型参数/查模型配置」）
 - 示例用反引号包裹命令，卡面会高亮
+- 想删卡：把整段 `## 名字 …` 删掉存盘即可
 - 改完存盘即可，下次 `c` 自动加载
 
 ---
