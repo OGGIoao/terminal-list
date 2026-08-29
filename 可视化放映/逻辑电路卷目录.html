@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>逻辑电路卷 · 目录</title>
+<style>
+  :root{ --kb:#002FA7; --ink:#111; --line:#ddd; --muted:#888; --green:#1a8a3a; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:#fff;}
+  header{border-bottom:2px solid var(--kb);padding:28px 40px 18px;}
+  h1{margin:0;font-size:26px;letter-spacing:2px;color:var(--kb);}
+  .sub{margin-top:6px;color:var(--muted);font-size:14px;letter-spacing:1px;}
+  main{padding:24px 40px 60px;max-width:1000px;}
+  .sec{font-size:13px;letter-spacing:2px;color:var(--kb);font-weight:700;margin:22px 0 10px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line);}
+  .cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 16px;min-height:78px;}
+  .no{font-size:12px;color:var(--kb);font-weight:700;letter-spacing:1px;}
+  .ttl{margin-top:4px;font-size:15px;line-height:1.4;}
+  .st{margin-top:8px;font-size:12px;color:var(--green);}
+  a.cell{text-decoration:none;color:inherit;transition:background .15s;}
+  a.cell:hover{background:#f3f5ff;}
+  .todo{background:#fafafa;}
+  .todo .ttl{color:var(--muted);}
+  .todo .st{color:#bbb;}
+  footer{margin-top:34px;color:var(--muted);font-size:12px;line-height:1.7;}
+</style>
+</head>
+<body>
+<header>
+  <h1>逻辑电路卷 · 目录</h1>
+  <div class="sub">从开关到 ALU — 死的东西怎么组合出活的计算</div>
+</header>
+<main>
+
+  <div class="sec">已发布（11 / 20）</div>
+  <div class="grid">
+    <a class="cell" href="slides/01-logic/02-晶体管是开关-交互版.html"><div class="no">02</div><div class="ttl">晶体管就是个开关</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/03-用开关搭逻辑门-交互版.html"><div class="no">03</div><div class="ttl">用开关搭逻辑门</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/03b-逻辑门全家福-交互版.html"><div class="no">03b</div><div class="ttl">逻辑门全家福</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/04-NAND万能门-交互版.html"><div class="no">04</div><div class="ttl">NAND 是万能门</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/05-真值表-交互版.html"><div class="no">05</div><div class="ttl">真值表是电路的语言</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/06-半加器-交互版.html"><div class="no">06</div><div class="ttl">半加器：最简单的算术</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/07-全加器-交互版.html"><div class="no">07</div><div class="ttl">全加器：处理进位</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/08-MUX多路复用器-交互版.html"><div class="no">08</div><div class="ttl">多路复用器 MUX</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/09-解码器-交互版.html"><div class="no">09</div><div class="ttl">解码器：地址到选择</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/10-时序引入-交互版.html"><div class="no">10</div><div class="ttl">为什么需要记忆（时序引入）</div><div class="st">✓ 已发布</div></a>
+    <a class="cell" href="slides/01-logic/11-锁存器-交互版.html"><div class="no">11</div><div class="ttl">锁存器：最简单的记忆</div><div class="st">✓ 已发布</div></a>
+  </div>
+
+  <div class="sec">筹备中</div>
+  <div class="grid">
+    <div class="cell todo"><div class="no">01</div><div class="ttl">封面 · 演员表</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">12</div><div class="ttl">D 触发器：边沿触发</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">13</div><div class="ttl">寄存器：多位记忆</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">14</div><div class="ttl">计数器：会自己走</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">15</div><div class="ttl">ALU：大脑合体</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">16</div><div class="ttl">Logisim 实战：真搭验证</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">17</div><div class="ttl">闭环呼应：ALU→M5 Pro 的核</div><div class="st">筹备中</div></div>
+    <div class="cell todo"><div class="no">18</div><div class="ttl">杀青：花絮</div><div class="st">筹备中</div></div>
+  </div>
+
+  <footer>
+    克莱因蓝瑞士风 · 可视化放映工作室出品<br>
+    说明：大纲原计划 20 页；当前已发布 02–11（11 页）。筹备中项按大纲 12–19 + 封面 排列。<br>
+    注：大纲第 08 页「多位加法器·级联」在已发布序列中暂未单独成页（07 全加器后直接进 MUX），是否补做待定。
+  </footer>
+</main>
+</body>
+</html>
