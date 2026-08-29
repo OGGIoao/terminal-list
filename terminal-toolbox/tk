@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""tk — terminal-kit：跨域终端小工具统一入口
+
+复用 tkcore 共享引擎（融合排序 + ollama 零依赖调用），覆盖：
+
+  note    终端快记本（人话语义搜）
+  log     日志语义捞针（扫描 .log 段落）
+  gitx    git 提交语义搜（按 message/body）
+  clip    剪贴板历史语义搜（需先用 tk clip record 记录）
+  todo    任务盒（按内容语义召回，而非只匹配标题）
+  explain man/命令 翻人话（本地 ollama 生成）
+  sum     长输出摘要（本地 ollama 生成）
+
+每个域只是「数据源 + 模式」的差异，引擎（tkcore）不动——加新域 = 加一个采集函数。
+"""
+import os, sys, json, argparse, subprocess, datetime, uuid
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tkcore as T
+
+CONFIG_DIR = T.CONFIG_DIR
+NOTE_PATH = os.path.join(CONFIG_DIR, ".tk_note.jsonl")
+TODO_PATH = os.path.join(CONFIG_DIR, ".tk_todo.jsonl")
+CLIP_PATH = os.path.join(CONFIG_DIR, ".tk_clip.jsonl")
+
+
+# ---------- 通用存储（note/todo/clip 用 jsonl 增量） ----------
+def _load_jsonl(path):
+    if not os.path.isfile(path):
+        return []
+    out = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    pass
+    return out
+
+
+def _append_jsonl(path, obj):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def _now():
+    return datetime.datetime.now()
+
+
+def _stamp():
+    # 秒级时间戳 + 6 位随机后缀，避免同秒多次 add 时 id 碰撞导致显示错乱
+    return _now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+
+
+def _iso():
+    return _now().isoformat(" ", "seconds")
+
+
+# ---------- note：终端快记本 ----------
+def note_add(text, tags):
+    obj = {"id": _stamp(), "ts": _iso(), "text": text, "tags": tags or []}
+    _append_jsonl(NOTE_PATH, obj)
+    print("✓ 已记录：" + text)
+
+
+def note_search(q):
+    items = _load_jsonl(NOTE_PATH)
+    if not items:
+        print("（还没有任何快记，先用 `tk note -a \"...\"`）")
+        return
+    units = [{"key": it["id"], "name": it.get("text", "")[:40],
+              "text": it.get("text", ""), "aliases": it.get("tags", [])} for it in items]
+    if q:
+        res = T.fused_rank(units, q, "note")
+        if not res:
+            print("（没有匹配「%s」的快记）" % q)
+            return
+    else:
+        res = sorted(units, key=lambda u: u["key"], reverse=True)
+    for u in res[:10]:
+        it = next(i for i in items if i["id"] == u["key"])
+        tagstr = ("  #" + " #".join(it.get("tags", []))) if it.get("tags") else ""
+        print("• " + it.get("text", "") + tagstr)
+        print("  " + it.get("ts", ""))
+
+
+# ---------- log：日志语义捞针 ----------
+def _scan_logs(pathspec):
+    """返回 [(key, text)] 段落。pathspec 可为文件或目录（目录递归 3 层 *.log）。"""
+    files = []
+    if os.path.isfile(pathspec):
+        files = [pathspec]
+    else:
+        for root, _, fs in os.walk(pathspec):
+            depth = root[len(pathspec):].count(os.sep)
+            if depth > 3:
+                continue
+            for fn in fs:
+                if fn.endswith(".log") or fn.endswith(".log.txt"):
+                    files.append(os.path.join(root, fn))
+    units = []
+    for fp in files:
+        try:
+            with open(fp, encoding="utf-8", errors="replace") as f:
+                buf, start = [], 0
+                paras = []
+                for i, line in enumerate(f, 1):
+                    if line.strip() == "":
+                        if buf:
+                            paras.append((start, " ".join(buf)))
+                            buf = []
+                    else:
+                        if not buf:
+                            start = i
+                        buf.append(line.rstrip())
+                if buf:
+                    paras.append((start, " ".join(buf)))
+        except OSError:
+            continue
+        for ln, txt in paras:
+            if len(txt) > 4000:
+                txt = txt[:4000]
+            units.append({"key": "%s:%d" % (fp, ln), "name": os.path.basename(fp),
+                          "text": txt, "aliases": [os.path.basename(fp)]})
+    return units
+
+
+def log_search(q, pathspec):
+    units = _scan_logs(pathspec)
+    if not units:
+        print("（没找到 .log 文件，试试 `tk log <query> -p /path/to/file.log`）")
+        return
+    res = T.fused_rank(units, q, "log")
+    if not res:
+        print("（日志里没匹配「%s」）" % q)
+        return
+    for u in res[:10]:
+        print("• [%s] %s" % (u["key"], u["text"][:200]))
+
+
+# ---------- gitx：git 提交语义搜 ----------
+def gitx_search(q, repo):
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", repo, "log", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s%x1f%b%x1e",
+             "--date=short"],
+            stderr=subprocess.DEVNULL).decode("utf-8", "replace")
+    except Exception as e:
+        print("（无法读取 git 历史：%s）" % e)
+        return
+    units = []
+    for blk in out.split("\x1e"):
+        blk = blk.strip("\n")
+        if not blk:
+            continue
+        parts = blk.split("\x1f")
+        if len(parts) < 4:
+            continue
+        h, an, ad, s = parts[0], parts[1], parts[2], parts[3]
+        b = parts[4] if len(parts) > 4 else ""
+        units.append({"key": h[:10], "name": s, "text": s + " " + b, "aliases": [an]})
+    if not units:
+        print("（该仓库没有提交历史）")
+        return
+    res = T.fused_rank(units, q, "gitx")
+    if not res:
+        print("（提交历史里没匹配「%s」）" % q)
+        return
+    for u in res[:10]:
+        print("• %s  %s  (%s, %s)" % (u["key"], u["name"], u.get("aliases", [""])[0], ""))
+
+
+# ---------- clip：剪贴板历史语义搜 ----------
+def _clipboard_read():
+    if sys.platform == "darwin":
+        try:
+            return subprocess.check_output(["pbpaste"], stderr=subprocess.DEVNULL).decode("utf-8", "replace")
+        except Exception:
+            return ""
+    if sys.platform.startswith("win"):
+        try:
+            return subprocess.check_output(["powershell", "-command", "Get-Clipboard"],
+                                           stderr=subprocess.DEVNULL).decode("utf-8", "replace")
+        except Exception:
+            return ""
+    for cmd in (["xclip", "-o", "-selection", "clipboard"], ["wl-paste"]):
+        try:
+            return subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8", "replace")
+        except Exception:
+            continue
+    return ""
+
+
+def clip_record():
+    txt = _clipboard_read().strip()
+    if not txt:
+        print("（剪贴板为空，没记录）")
+        return
+    obj = {"id": _stamp(), "ts": _iso(), "text": txt}
+    _append_jsonl(CLIP_PATH, obj)
+    print("✓ 已记录剪贴板（%d 字）" % len(txt))
+
+
+def clip_search(q):
+    items = _load_jsonl(CLIP_PATH)
+    units = [{"key": it["id"], "name": it.get("text", "")[:40],
+              "text": it.get("text", ""), "aliases": []} for it in items]
+    if q:
+        res = T.fused_rank(units, q, "clip")
+        if not res:
+            print("（剪贴板历史里没匹配「%s」）" % q)
+            return
+    else:
+        if not units:
+            print("（剪贴板历史为空，先 `tk clip -r` 记录，或 `tk clip` 搜当前）")
+            return
+        res = sorted(units, key=lambda u: u["key"], reverse=True)
+    for u in res[:10]:
+        it = next(i for i in items if i["id"] == u["key"])
+        print("• " + it.get("text", "")[:200])
+        print("  " + it.get("ts", ""))
+
+
+# ---------- todo：任务盒 ----------
+def todo_add(text, tags):
+    obj = {"id": _stamp(), "ts": _iso(), "text": text, "tags": tags or [], "done": False}
+    _append_jsonl(TODO_PATH, obj)
+    print("✓ 已加任务：" + text)
+
+
+def todo_done(tid):
+    items = _load_jsonl(TODO_PATH)
+    found = False
+    for it in items:
+        if tid in it["id"] or tid == it.get("text", ""):
+            it["done"] = True
+            found = True
+    with open(TODO_PATH, "w", encoding="utf-8") as f:
+        for it in items:
+            f.write(json.dumps(it, ensure_ascii=False) + "\n")
+    print("✓ 已标记完成" if found else "（没找到匹配的任务）")
+
+
+def todo_search(q):
+    items = _load_jsonl(TODO_PATH)
+    active = [i for i in items if not i.get("done")]
+    units = [{"key": it["id"], "name": it.get("text", "")[:40],
+              "text": it.get("text", ""), "aliases": it.get("tags", [])} for it in active]
+    if q:
+        res = T.fused_rank(units, q, "todo")
+        if not res:
+            print("（没有匹配「%s」的未完成任务）" % q)
+            return
+    else:
+        if not units:
+            print("（没有未完成任务，用 `tk todo -a \"...\"` 添加）")
+            return
+        res = sorted(units, key=lambda u: u["key"], reverse=True)
+    for u in res[:20]:
+        it = next(i for i in items if i["id"] == u["key"])
+        tagstr = ("  #" + " #".join(it.get("tags", []))) if it.get("tags") else ""
+        print("• [ ] " + it.get("text", "") + tagstr)
+
+
+# ---------- explain / sum：本地 ollama 生成 ----------
+def explain(target):
+    system = "你是终端命令讲解助手。用中文、人话解释命令与选项，给一个最小可运行示例，不要啰嗦。"
+    prompt = ("请解释这个命令/选项：%s\n如果它是某个命令的选项，请说明所属命令与典型用法。"
+              % target)
+    try:
+        ans = T.generate(prompt, system=system)
+    except RuntimeError as e:
+        print("⚠️ " + str(e))
+        return
+    print(ans.strip())
+
+
+def sum_text(filearg):
+    if filearg and filearg != "-":
+        try:
+            data = open(filearg, encoding="utf-8", errors="replace").read()
+        except OSError as e:
+            print("（读文件失败：%s）" % e)
+            return
+    else:
+        data = sys.stdin.read()
+    if not data.strip():
+        print("（没有输入）")
+        return
+    system = "你是文本摘要助手。用中文给出 3-5 条要点，保留关键数字与命令，去掉冗余。"
+    prompt = "请摘要下面这段内容：\n\n%s" % data[:12000]
+    try:
+        ans = T.generate(prompt, system=system)
+    except RuntimeError as e:
+        print("⚠️ " + str(e))
+        return
+    print(ans.strip())
+
+
+# ---------- CLI ----------
+def main():
+    p = argparse.ArgumentParser(prog="tk", description="terminal-kit：跨域终端小工具")
+    sub = p.add_subparsers(dest="cmd")
+
+    pn = sub.add_parser("note", help="终端快记本（人话语义搜）")
+    pn.add_argument("query", nargs="*", help="语义搜（省略则列全部）")
+    pn.add_argument("-a", "--add", metavar="TEXT", help="追加一条快记")
+    pn.add_argument("-t", "--tag", metavar="TAGS", help="标签，逗号分隔")
+
+    pl = sub.add_parser("log", help="日志语义捞针")
+    pl.add_argument("query", help="要找的报错/关键词（人话）")
+    pl.add_argument("-p", "--path", default=".", help="日志文件或目录（默认当前目录）")
+
+    pg = sub.add_parser("gitx", help="git 提交语义搜")
+    pg.add_argument("query", help="要找的提交主题（人话）")
+    pg.add_argument("-r", "--repo", default=".", help="仓库路径")
+
+    pc = sub.add_parser("clip", help="剪贴板历史语义搜")
+    pc.add_argument("query", nargs="*", help="语义搜（省略则列历史）")
+    pc.add_argument("-r", "--record", action="store_true", help="记录当前剪贴板")
+
+    pt = sub.add_parser("todo", help="任务盒（按内容召回）")
+    pt.add_argument("query", nargs="*", help="语义搜（省略则列未完成任务）")
+    pt.add_argument("-a", "--add", metavar="TEXT", help="添加任务")
+    pt.add_argument("-t", "--tag", metavar="TAGS", help="标签，逗号分隔")
+    pt.add_argument("-d", "--done", metavar="ID", help="标记完成（匹配 id 或文本）")
+
+    pe = sub.add_parser("explain", help="命令/man 翻人话（本地 ollama）")
+    pe.add_argument("target", help="命令或选项，如 tar -xzf")
+
+    ps = sub.add_parser("sum", help="长输出摘要（本地 ollama）")
+    ps.add_argument("-f", "--file", default="-", help="输入文件（默认 stdin）")
+
+    args = p.parse_args()
+    # 启动期探测：ollama 没跑/不健康时，跨语言与弱信号查询会退回纯离线（中文→英文等会不准）
+    if args.cmd in ("note", "log", "gitx", "clip", "todo") and not T.ollama_available():
+        print("（⚠️ 本机 ollama 未运行/不健康，语义检索未生效；中文→英文等跨语言查询可能不准。启动 `ollama serve` 即可增强）")
+    if args.cmd == "note":
+        if args.add:
+            tags = [t.strip() for t in args.tag.split(",")] if args.tag else []
+            note_add(args.add, tags)
+        else:
+            note_search(" ".join(args.query))
+    elif args.cmd == "log":
+        log_search(args.query, args.path)
+    elif args.cmd == "gitx":
+        gitx_search(args.query, args.repo)
+    elif args.cmd == "clip":
+        if args.record:
+            clip_record()
+        else:
+            clip_search(" ".join(args.query))
+    elif args.cmd == "todo":
+        if args.add:
+            tags = [t.strip() for t in args.tag.split(",")] if args.tag else []
+            todo_add(args.add, tags)
+        elif args.done:
+            todo_done(args.done)
+        else:
+            todo_search(" ".join(args.query))
+    elif args.cmd == "explain":
+        explain(args.target)
+    elif args.cmd == "sum":
+        sum_text(args.file)
+    else:
+        p.print_help()
+
+
+if __name__ == "__main__":
+    main()
