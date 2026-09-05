@@ -39,14 +39,24 @@ FIELDS = ["作用", "用法", "示例", "踩坑", "Windows对照", "来源卷", 
 
 
 def resolve_sheet():
-    """数据源解析：优先 ~/.config/cheat/cheatsheet.md；仓库自带 cheatsheet.md 作兜底（clone 即可跑）。"""
+    """数据源解析：优先 ~/.config/cheat/cheatsheet.md（用户级，可跨机器同步）。
+
+    首次若不存在，自动从脚本同目录的 cheatsheet.md 初始化到用户级——零配置即用，
+    且用户加卡落在可同步目录、不污染仓库（Windows 首次clone即用，macOS 同理）。"""
     preferred = os.path.expanduser("~/.config/cheat/cheatsheet.md")
     if os.path.isfile(preferred):
         return preferred
     local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cheatsheet.md")
     if os.path.isfile(local):
-        return local
-    return preferred  # 仍指向默认路径，保留原「找不到数据源」报错
+        try:
+            os.makedirs(os.path.dirname(preferred), exist_ok=True)
+            shutil.copyfile(local, preferred)
+            print("（已为你初始化命令卡到 %s，可随时编辑；仓库内置副本保持不变）" % preferred)
+        except OSError as e:
+            print("（⚠️ 初始化失败：%s — 将临时使用仓库内置副本）" % e)
+            return local
+        return preferred
+    sys.exit("❌ 找不到数据源: " + preferred)
 
 
 def load_cards(path):
