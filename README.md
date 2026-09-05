@@ -1,5 +1,7 @@
 # 个人终端工具箱 · Personal Terminal Toolbox
 
+> 👋 **接手本项目？** 按顺序读：[`AGENTS.md`](AGENTS.md) → [`STATUS.md`](STATUS.md) → [`MEMORY.md`](MEMORY.md) → 最近日记 `.workbuddy/memory/2026-09-05.md`。
+
 > 把我亲手用 shell / Python 造的命令行工具与脚本，沉淀成**可复用、可检索、可跨机器同步**的个人命令库。
 > 设计初衷：**你不用记命令名，只要会说"想做的事"**（中文 / 拼音 / 英文都行），工具替你找到该敲的那条。
 
